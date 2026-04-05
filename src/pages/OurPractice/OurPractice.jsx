@@ -174,7 +174,7 @@ const ForegroundImage = styled.img`
 /** `typeBody` for Services (Scope) & Contact — single column, no list bullets. */
 const PracticeBodyBlock = styled.div`
   ${typeBody}
-  line-height: 1.45;
+  line-height: 1.35;
 
   p {
     margin: 0 0 0.6em 0;
