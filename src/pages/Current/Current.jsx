@@ -4,7 +4,6 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   getChannelContentsByTitle,
-  getGroupChannels,
   fetchAllChannelContents,
   useArenaRefresh,
 } from "../../arena";
@@ -279,25 +278,15 @@ function Current() {
         ? parsePattern(getBlockText(shiftPatternBlock)) ?? DEFAULT_SHIFT_PATTERN
         : DEFAULT_SHIFT_PATTERN;
 
-      // Get // channels from "Page / Current" (ordered) + group (complete)
-      const pageSlash = contents.filter(
+      // `Page / Current` is the source of truth. Disconnecting a `//` channel in the CMS
+      // removes it here; the Are.na group isn't used as a fallback since group membership
+      // persists after disconnection and would resurrect removed items.
+      const slashChannels = contents.filter(
         (item) =>
           item.type === "Channel" &&
           typeof item.title === "string" &&
           item.title.startsWith("//")
       );
-      const allGroupChannels = await getGroupChannels(undefined, { skipCache });
-      const groupSlash = allGroupChannels.filter(
-        (item) =>
-          typeof item.title === "string" &&
-          item.title.startsWith("//")
-      );
-      // Use page order, then append any group channels not connected to the page
-      const pageIds = new Set(pageSlash.map((ch) => ch.id));
-      const slashChannels = [
-        ...pageSlash,
-        ...groupSlash.filter((ch) => !pageIds.has(ch.id)),
-      ];
 
       // Fetch each // channel's contents in parallel (single request per channel)
       const thumbnails = await Promise.all(

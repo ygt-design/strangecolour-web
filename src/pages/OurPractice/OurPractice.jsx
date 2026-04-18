@@ -601,10 +601,16 @@ const PracticeRowListCell = styled(GridCell)`
   }
 `;
 
+/** Same column band as `Navigation` right cluster — aligns “Notes and Legal” with nav inset. */
+const LegalFooterCell = styled(GridCell)`
+  display: flex;
+  justify-content: flex-end;
+`;
+
 const LegalFooterTrigger = styled.button`
   ${typeBody}
   display: block;
-  margin: 2.5rem 0 0 auto;
+  margin: 2.5rem 0 0 0;
   padding: 0;
   font-weight: 400;
   line-height: 1.35;
@@ -1175,11 +1181,11 @@ function OurPractice() {
       </Grid>
 
       <Grid as="div">
-        <GridCell
-          $start={1}
-          $span={12}
-          $startTablet={1}
-          $spanTablet={8}
+        <LegalFooterCell
+          $start={9}
+          $span={4}
+          $startTablet={6}
+          $spanTablet={3}
           $startMobile={1}
           $spanMobile={4}
         >
@@ -1190,7 +1196,7 @@ function OurPractice() {
           >
             Notes and Legal
           </LegalFooterTrigger>
-        </GridCell>
+        </LegalFooterCell>
       </Grid>
     </Page>}
 
@@ -1208,7 +1214,7 @@ function OurPractice() {
             <Grid as="div">
               <GridCell
                 $start={1}
-                $span={11}
+                $span={12}
                 $startTablet={1}
                 $spanTablet={8}
                 $startMobile={1}
