@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import styled from "styled-components";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -34,19 +34,62 @@ const LargeText = styled.div`
   }
 `;
 
+/** Intro header: categories cycle these on hover (`data-category-hover` in document order). */
+const CATEGORY_HOVER = ["#0f756f", "#75570f", "#750f61"];
+
+const introCategoryHoverBlock = [0, 1, 2]
+  .map(
+    (i) => `
+  & a[data-category-hover="${i}"]:hover,
+  & a[data-category-hover="${i}"]:focus-visible,
+  & a[data-category-hover="${i}"]:active,
+  & strong[data-category-hover="${i}"]:hover,
+  & strong[data-category-hover="${i}"]:focus-visible,
+  & strong[data-category-hover="${i}"]:active,
+  & b[data-category-hover="${i}"]:hover,
+  & b[data-category-hover="${i}"]:focus-visible,
+  & b[data-category-hover="${i}"]:active {
+    color: ${CATEGORY_HOVER[i]} !important;
+  }`,
+  )
+  .join("");
+
 const IntroText = styled(LargeText)`
   margin-top: ${(p) => (p.$afterDate ? "1rem" : "2rem")};
 
   @media ${GRID.MEDIA_MOBILE} {
     margin-top: ${(p) => (p.$afterDate ? "0.35rem" : "2rem")};
   }
+
+  & a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.45s ease;
+  }
+
+  & strong,
+  & b {
+    transition: color 0.45s ease;
+  }
+
+  ${introCategoryHoverBlock}
+
+  @media (prefers-reduced-motion: reduce) {
+    & a,
+    & strong,
+    & b {
+      transition: none;
+    }
+  }
 `;
 
-const DateBlock = styled(LargeText)`
+/** Smaller than `LargeText` / title so the date reads as secondary (lower cap height / optical scale). */
+const DateBlock = styled.div`
+  max-width: 100%;
   margin-top: 0;
-`;
-
-const DateText = styled.div`
+  font-weight: 400;
+  font-size: clamp(0.9375rem, 2.85vw, 2.15rem);
+  line-height: 1.2;
 
   p {
     margin: 0 0 0.5em;
@@ -183,10 +226,26 @@ function wrapWords(el) {
   return spans;
 }
 
+/**
+ * Mark category targets for hover colors. Prefer `<a>` when present (Arena often uses bold only).
+ */
+function tagIntroCategoryTargets(introRoot) {
+  if (!introRoot) return;
+  const links = introRoot.querySelectorAll("a");
+  const nodes =
+    links.length > 0
+      ? [...links]
+      : [...introRoot.querySelectorAll("strong, b")];
+  nodes.forEach((el, i) => {
+    el.dataset.categoryHover = String(i % CATEGORY_HOVER.length);
+  });
+}
+
 function Current() {
   const [data, setData] = useState(null);
   const textRefs = useRef([]);
   const thumbCellRefs = useRef([]);
+  const introTextRef = useRef(null);
   const hasAnimated = useRef(false);
   const refreshKey = useArenaRefresh();
 
@@ -299,6 +358,12 @@ function Current() {
     return () => { cancelled = true; };
   }, [refreshKey]);
 
+  // After Intro HTML is in the DOM — re-apply whenever CMS content changes (not gated by word animation).
+  useLayoutEffect(() => {
+    if (!data?.introBlock) return;
+    tagIntroCategoryTargets(introTextRef.current);
+  }, [data?.introBlock]);
+
   // Word-by-word text entrance (runs on first render with data)
   useEffect(() => {
     if (!data || hasAnimated.current) return;
@@ -310,6 +375,7 @@ function Current() {
       el.style.opacity = "1";
       allWords.push(...wrapWords(el));
     });
+    tagIntroCategoryTargets(introTextRef.current);
     if (allWords.length) {
       gsap.fromTo(
         allWords,
@@ -350,11 +416,10 @@ function Current() {
           const isDate = block.id === dateBlock?.id;
           const isIntro = block.id === introBlock?.id;
           const body = isDate ? (
-            <DateBlock>
-              <DateText dangerouslySetInnerHTML={{ __html: block.content?.html }} />
-            </DateBlock>
+            <DateBlock dangerouslySetInnerHTML={{ __html: block.content?.html }} />
           ) : isIntro ? (
             <IntroText
+              ref={introTextRef}
               $afterDate={!!dateBlock}
               dangerouslySetInnerHTML={{ __html: block.content?.html }}
             />

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import styled from "styled-components";
-import { typeSmall } from "../styles";
+import { typeSmallMixed } from "../styles";
 import { GRID } from "../grid/config.js";
 
 const ALIGN_TO_JUSTIFY = {
@@ -60,7 +60,7 @@ const Thumb = styled.img`
 `;
 
 const Title = styled.div`
-  ${typeSmall}
+  ${typeSmallMixed}
   margin-top: 0.25rem;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -71,7 +71,7 @@ const Title = styled.div`
 `;
 
 const Subtitle = styled.div`
-  ${typeSmall}
+  ${typeSmallMixed}
   opacity: 0;
   transition: opacity 0.2s ease;
 

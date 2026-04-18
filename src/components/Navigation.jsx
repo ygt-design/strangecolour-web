@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 import { Grid, GridCell, GRID } from "../grid";
-import { typeSmall } from "../styles";
+import { LOADER_NAV_HANDOFF } from "../loaderNavHandoff.js";
+import { typeSmallMixed } from "../styles";
 
 const HeaderBar = styled.header`
   position: fixed;
@@ -11,7 +12,7 @@ const HeaderBar = styled.header`
   right: 0;
   z-index: 100;
   background: white;
-  padding-block: 0.5rem;
+  padding-block: 1rem;
 `;
 
 const MobileNavSection = styled.div`
@@ -68,12 +69,15 @@ const RightCluster = styled.div`
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   justify-content: flex-end;
 `;
 
 const StyledNavLink = styled(NavLink)`
-  ${typeSmall}
+  ${typeSmallMixed}
+  line-height: 1.5;
+  display: inline-flex;
+  align-items: center;
   color: inherit;
   text-decoration: none;
   white-space: nowrap;
@@ -85,30 +89,40 @@ const StyledNavLink = styled(NavLink)`
   &.active {
     color: var(--color-accent-green);
   }
+
+  @media ${GRID.MEDIA_MOBILE} {
+    line-height: 1.25;
+  }
 `;
 
 const LogoBox = styled.div`
-  width: 24px;
-  height: 24px;
+  width: 1.5rem;
+  height: 1.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: center;
   overflow: visible;
+  opacity: ${(p) => (p.$concealed ? 0 : 1)};
+  visibility: ${(p) => (p.$concealed ? "hidden" : "visible")};
   @media ${GRID.MEDIA_MOBILE} {
-    width: 20px;
-    height: 20px;
+    width: 1.25rem;
+    height: 1.25rem;
   }
 `;
 
 const GlyphChar = styled.span`
   font-family: 'Citerne', system-ui, sans-serif;
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 1.35rem;
+  font-weight: 500;
   line-height: 1;
   color: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   @media ${GRID.MEDIA_MOBILE} {
-    font-size: 22px;
+    font-size: 1.1rem;
   }
 `;
 
@@ -118,22 +132,42 @@ const GreenSquare = styled.div`
   background-color: var(--color-accent-green);
 `;
 
-const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789&@#*†‡§¶•→←↑↓◆■□▲▼●○";
+const GLYPHS = "ÆĐ&CﬀZß≈×#STKP";
 const SHUFFLE_INTERVAL = 120;
 const SHUFFLE_COUNT = 8;
 const HOLD_DURATION = 1000;
+/** Keep green square on nav after loader lands before shuffle resumes. */
+const POST_HANDOFF_GREEN_MS = 500;
 
 function GlyphLogo() {
   const [phase, setPhase] = useState("hold"); // "shuffle" | "hold"
   const [glyph, setGlyph] = useState("");
+  const [loaderHandoff, setLoaderHandoff] = useState(false);
   const tickRef = useRef(0);
+  /**
+   * After loader handoff ends: delay (ms) before shuffle. `null` = use HOLD_DURATION (initial mount).
+   */
+  const resumeShuffleDelayRef = useRef(null);
 
   useEffect(() => {
+    const onHandoff = (e) => {
+      const active = !!e.detail?.active;
+      if (active) setPhase("hold");
+      else resumeShuffleDelayRef.current = POST_HANDOFF_GREEN_MS;
+      setLoaderHandoff(active);
+    };
+    window.addEventListener(LOADER_NAV_HANDOFF, onHandoff);
+    return () => window.removeEventListener(LOADER_NAV_HANDOFF, onHandoff);
+  }, []);
+
+  useEffect(() => {
+    if (loaderHandoff) return;
     let timer;
 
     function shuffle() {
       setPhase("shuffle");
-      tickRef.current = 0;
+      setGlyph(GLYPHS[Math.floor(Math.random() * GLYPHS.length)]);
+      tickRef.current = 1;
 
       timer = setInterval(() => {
         setGlyph(GLYPHS[Math.floor(Math.random() * GLYPHS.length)]);
@@ -147,13 +181,24 @@ function GlyphLogo() {
       }, SHUFFLE_INTERVAL);
     }
 
-    timer = setTimeout(shuffle, HOLD_DURATION);
-    return () => clearInterval(timer);
-  }, []);
+    const delay =
+      resumeShuffleDelayRef.current != null
+        ? resumeShuffleDelayRef.current
+        : HOLD_DURATION;
+    if (resumeShuffleDelayRef.current != null) resumeShuffleDelayRef.current = null;
+    timer = setTimeout(shuffle, delay);
+    return () => { clearInterval(timer); clearTimeout(timer); };
+  }, [loaderHandoff]);
+
+  const showGreen = loaderHandoff || phase === "hold";
 
   return (
-    <LogoBox aria-hidden>
-      {phase === "hold" ? <GreenSquare /> : <GlyphChar>{glyph}</GlyphChar>}
+    <LogoBox
+      aria-hidden
+      data-nav-glyph-logo
+      $concealed={loaderHandoff}
+    >
+      {showGreen ? <GreenSquare /> : <GlyphChar>{glyph}</GlyphChar>}
     </LogoBox>
   );
 }

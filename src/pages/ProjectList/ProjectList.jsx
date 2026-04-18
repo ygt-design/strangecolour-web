@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import styled, { css } from "styled-components";
 import gsap from "gsap";
 import {
@@ -39,15 +46,48 @@ function getImageUrl(block) {
   return img?.src ?? img?.display?.url ?? img?.original?.url ?? img?.large?.src ?? null;
 }
 
-function stripTrailingSqm(raw) {
-  return raw.replace(/\s*sqm\.?$/i, "").trim();
+/** Remove trailing unit tokens so we can parse the numeric part. */
+function stripSizeSuffix(raw) {
+  return (raw ?? "")
+    .replace(/\s*sqm\.?$/i, "")
+    .replace(/\s*m\s*²\s*$/i, "")
+    .replace(/\s*m2\s*$/i, "")
+    .replace(/\s*s\.?f\.?\s*$/i, "")
+    .replace(/\s*sq\.?\s*ft\.?\s*$/i, "")
+    .replace(/\s*sf\s*$/i, "")
+    .trim();
 }
 
-/** Display size with square-metre notation (values from Are.na stay numeric / plain). */
-function formatSizeSqm(raw) {
-  const s = stripTrailingSqm((raw ?? "").trim());
-  if (!s) return "";
-  return `${s}\u00A0m\u00B2`;
+/** Leading numeric value (commas / inner spaces allowed). */
+function parseSizeNumber(raw) {
+  const stripped = stripSizeSuffix((raw ?? "").trim());
+  if (!stripped) return NaN;
+  const match = stripped.match(/^[\d,.\s]+/);
+  if (!match) return NaN;
+  const n = parseFloat(match[0].replace(/,/g, "").replace(/\s/g, ""));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+const SQ_M_TO_SQ_FT = 10.76391041671;
+
+/**
+ * Square feet for display + sort. If the string clearly indicates m² / sqm, convert; otherwise treat the number as s.f.
+ */
+function sizeToSqFt(raw) {
+  const rawStr = (raw ?? "").trim();
+  const n = parseSizeNumber(rawStr);
+  if (!Number.isFinite(n)) return null;
+  const isMetric = /\bsqm\b|sq\.?\s*m\.?|m\s*²|\bm2\b/i.test(rawStr);
+  if (isMetric) return n * SQ_M_TO_SQ_FT;
+  return n;
+}
+
+/** List + preview: always s.f. (no m²). */
+function formatSizeSf(raw) {
+  const sqft = sizeToSqFt(raw);
+  if (sqft == null) return "";
+  const rounded = Math.round(sqft);
+  return `${rounded.toLocaleString("en-US")}\u00A0s.f.`;
 }
 
 function sortProjects(projects, sortBy) {
@@ -58,9 +98,16 @@ function sortProjects(projects, sortBy) {
     case "client":
       return sorted.sort((a, b) => (a.client || "").localeCompare(b.client || ""));
     case "size":
-      return sorted.sort((a, b) =>
-        stripTrailingSqm(a.size || "").localeCompare(stripTrailingSqm(b.size || "")),
-      );
+      return sorted.sort((a, b) => {
+        const av = sizeToSqFt(a.size);
+        const bv = sizeToSqFt(b.size);
+        const aOk = av != null;
+        const bOk = bv != null;
+        if (!aOk && !bOk) return 0;
+        if (!aOk) return 1;
+        if (!bOk) return -1;
+        return av - bv;
+      });
     default:
       return sorted;
   }
@@ -76,6 +123,9 @@ const LayoutGrid = styled(Grid)`
 `;
 
 const cellType = typeSmall;
+
+/** Matches vertical rhythm between list rows (`ListRow` margin 0.1rem + 0.1rem). */
+const LIST_ROW_STACK_GAP = "0.2rem";
 
 // ─── Left preview panel ──────────────────────────────────
 
@@ -95,12 +145,14 @@ const PreviewPanel = styled.div`
   right: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: ${LIST_ROW_STACK_GAP};
 `;
 
 const PreviewImage = styled.div`
   width: 100%;
   overflow: hidden;
+  flex-shrink: 0;
+  line-height: 0;
   opacity: ${(p) => (p.$visible ? 1 : 0)};
   transition: opacity 0.2s ease;
 
@@ -114,15 +166,15 @@ const PreviewImage = styled.div`
   }
 `;
 
-const PreviewMetaTop = styled.div`
+/** All caption lines stacked — shown above or below the image depending on list row / viewport flip. */
+const PreviewCaptionStack = styled.div`
   ${cellType}
+  line-height: 1.2;
+  display: flex;
+  flex-direction: column;
+  gap: ${LIST_ROW_STACK_GAP};
   min-width: 0;
-`;
-
-const PreviewScope = styled.div`
-  ${cellType}
   color: black;
-  min-width: 0;
 `;
 
 const PreviewMetaRow = styled.div`
@@ -131,13 +183,19 @@ const PreviewMetaRow = styled.div`
   gap: 0.5rem;
   align-items: baseline;
   min-width: 0;
-  color: black;
 `;
 
 const PreviewArchitect = styled.span`
   text-align: right;
   justify-self: end;
   min-width: 0;
+`;
+
+const PreviewCaptionScope = styled.div`
+  min-width: 0;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 `;
 
 // ─── Right list (subgrid: columns snap to site grid tracks) ─
@@ -212,6 +270,7 @@ const HeaderButton = styled.button`
 
 const Cell = styled.div`
   ${cellType}
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -222,7 +281,7 @@ const SizeCell = styled(Cell)`
   text-align: right;
 `;
 
-/** Counteract ${cellType} uppercase so m² (and any CMS text) stays mixed / lowercase. */
+/** Counteract ${cellType} uppercase so "s.f." stays mixed case. */
 const NoUppercase = styled.span`
   text-transform: none;
 `;
@@ -260,7 +319,8 @@ const ListRow = styled.div`
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   cursor: pointer;
-  padding: 0.1rem 0;
+  padding: 0;
+  margin: 0.1rem 0;
   transition: color 0.15s ease;
   color: ${(p) => (p.$dimmed ? "var(--color-muted-light)" : "inherit")};
 
@@ -271,6 +331,24 @@ const ListRow = styled.div`
   }
 `;
 
+function PreviewCaptions({ project }) {
+  if (!project) return null;
+  const { year, architect, scope } = project;
+  const hasMeta = year || architect;
+  if (!hasMeta && !scope) return null;
+  return (
+    <PreviewCaptionStack>
+      {hasMeta && (
+        <PreviewMetaRow>
+          <span>{year ?? ""}</span>
+          <PreviewArchitect>{architect ?? ""}</PreviewArchitect>
+        </PreviewMetaRow>
+      )}
+      {scope ? <PreviewCaptionScope>{scope}</PreviewCaptionScope> : null}
+    </PreviewCaptionStack>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────
 
 function ProjectList() {
@@ -279,12 +357,16 @@ function ProjectList() {
   const [hoveredProject, setHoveredProject] = useState(null);
   const [previewProject, setPreviewProject] = useState(null);
   const [previewTop, setPreviewTop] = useState(0);
+  /** When false, caption stack sits above the image (viewport flip for lower list rows). */
+  const [captionBelowImage, setCaptionBelowImage] = useState(true);
 
   const rowsRef = useRef([]);
   const hasAnimated = useRef(false);
   const previewCellRef = useRef(null);
   const previewPanelRef = useRef(null);
   const hoveredRowRef = useRef(null);
+  /** After first measure for this hover, caption order stays fixed; only previewTop is refined. */
+  const captionPlacementDecidedRef = useRef(false);
 
   const sorted = useMemo(
     () => (projects ? sortProjects(projects, sortBy) : null),
@@ -298,13 +380,22 @@ function ProjectList() {
     if (!cellEl || !panelEl || !rowEl) return;
 
     const cellRect = cellEl.getBoundingClientRect();
+    /**
+     * `ListRow` uses margin (not padding), so its border box matches the cell grid.
+     * Measuring the row avoids sub-pixel drift vs. measuring a single cell.
+     */
     const rowRect = rowEl.getBoundingClientRect();
     const panelHeight = panelEl.offsetHeight;
     const vh = window.innerHeight;
 
     const alignTop = rowRect.top - cellRect.top;
 
-    if (rowRect.top + panelHeight > vh) {
+    const needsViewportFlip = rowRect.top + panelHeight > vh;
+    if (!captionPlacementDecidedRef.current) {
+      setCaptionBelowImage(!needsViewportFlip);
+      captionPlacementDecidedRef.current = true;
+    }
+    if (needsViewportFlip) {
       const bottomAlignTop = (rowRect.bottom - cellRect.top) - panelHeight;
       setPreviewTop(Math.max(0, bottomAlignTop));
     } else {
@@ -313,6 +404,8 @@ function ProjectList() {
   }, []);
 
   const handleRowEnter = useCallback((project, e) => {
+    captionPlacementDecidedRef.current = false;
+    setCaptionBelowImage(true);
     setHoveredProject(project);
     setPreviewProject(project);
     hoveredRowRef.current = e.currentTarget;
@@ -322,7 +415,17 @@ function ProjectList() {
   const handleRowLeave = useCallback(() => {
     setHoveredProject(null);
     hoveredRowRef.current = null;
+    captionPlacementDecidedRef.current = false;
+    setCaptionBelowImage(true);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!hoveredProject) return;
+    const id = requestAnimationFrame(() => {
+      updatePreviewPosition();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [captionBelowImage, hoveredProject, updatePreviewPosition]);
 
   const refreshKey = useArenaRefresh();
 
@@ -411,28 +514,34 @@ function ProjectList() {
             ref={previewPanelRef}
             style={{ top: `${previewTop}px` }}
           >
-            {previewVisible &&
-              (previewProject?.year || previewProject?.architect) && (
-                <PreviewMetaTop>
-                  <PreviewMetaRow>
-                    <span>{previewProject?.year ?? ""}</span>
-                    <PreviewArchitect>
-                      {previewProject?.architect ?? ""}
-                    </PreviewArchitect>
-                  </PreviewMetaRow>
-                </PreviewMetaTop>
-              )}
-            <PreviewImage $visible={previewVisible && !!previewProject?.imageUrl}>
-              {previewProject?.imageUrl && (
-                <img
-                  src={previewProject.imageUrl}
-                  alt={previewProject.name}
-                  onLoad={updatePreviewPosition}
-                />
-              )}
-            </PreviewImage>
-            {previewVisible && previewProject?.scope && (
-              <PreviewScope>{previewProject.scope}</PreviewScope>
+            {previewVisible && (
+              captionBelowImage ? (
+                <>
+                  <PreviewImage $visible={!!previewProject?.imageUrl}>
+                    {previewProject?.imageUrl && (
+                      <img
+                        src={previewProject.imageUrl}
+                        alt={previewProject.name}
+                        onLoad={updatePreviewPosition}
+                      />
+                    )}
+                  </PreviewImage>
+                  <PreviewCaptions project={previewProject} />
+                </>
+              ) : (
+                <>
+                  <PreviewCaptions project={previewProject} />
+                  <PreviewImage $visible={!!previewProject?.imageUrl}>
+                    {previewProject?.imageUrl && (
+                      <img
+                        src={previewProject.imageUrl}
+                        alt={previewProject.name}
+                        onLoad={updatePreviewPosition}
+                      />
+                    )}
+                  </PreviewImage>
+                </>
+              )
             )}
           </PreviewPanel>
         </PreviewCell>
@@ -467,7 +576,6 @@ function ProjectList() {
               onClick={() => setSortBy("size")}
             >
               Size
-              <NoUppercase>{"\u00A0m\u00B2"}</NoUppercase>
             </HeaderSize>
 
             {sorted.map((project, i) => (
@@ -482,7 +590,7 @@ function ProjectList() {
                 <ListCellProject>{project.name}</ListCellProject>
                 <ListCellClient>{project.client}</ListCellClient>
                 <ListCellSize>
-                  <NoUppercase>{formatSizeSqm(project.size)}</NoUppercase>
+                  <NoUppercase>{formatSizeSf(project.size)}</NoUppercase>
                 </ListCellSize>
               </ListRow>
             ))}

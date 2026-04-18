@@ -1,4 +1,9 @@
-export { BASE_URL, getAuthHeaders, getGroupSlug, fetchArena } from "./client.js";
+export {
+  BASE_URL,
+  getAuthHeaders,
+  getGroupSlug,
+  fetchArena,
+} from "./client.js";
 
 export {
   getGroup,

@@ -6,8 +6,9 @@ import {
   useArenaRefresh,
 } from "../../arena";
 import { Grid, GridCell, GRID } from "../../grid";
-import { typeBody, typeSmall, typeArrow } from "../../styles";
+import { typeBody, typeSmallMixed } from "../../styles";
 import LoadingOverlay from "../../components/LoadingOverlay";
+import scarrowUrl from "../../assets/SCARROW.svg";
 
 // ─── Helpers ─────────────────────────────────────────────
 
@@ -93,14 +94,12 @@ const Caption = styled.div`
   text-align: center;
 `;
 
-/** Matches `StyledNavLink` in Navigation — same as site nav, without uppercase. */
+/** Matches `typeSmallMixed` / nav — site-wide small body line under imagery. */
 const MetaLine = styled.div`
-  ${typeSmall}
+  ${typeSmallMixed}
   color: inherit;
-  text-transform: none;
   text-align: center;
   padding-bottom: 1rem;
-  font-size: 1rem;
   width: 100%;
 `;
 
@@ -143,13 +142,20 @@ const CustomCursor = styled.div`
   position: fixed;
   pointer-events: none;
   z-index: 2;
-  ${typeArrow}
   transform: translate(-50%, -50%);
   user-select: none;
 
   @media (hover: none) {
     display: none;
   }
+`;
+
+const CursorArrowImg = styled.img`
+  display: block;
+  height: clamp(1.5rem, 7vw, 4rem);
+  width: auto;
+  object-fit: contain;
+  transform: ${(p) => (p.$flip ? "scaleX(-1)" : "none")};
 `;
 
 // ─── Component ───────────────────────────────────────────
@@ -163,8 +169,8 @@ function Past() {
   const pendingIndexRef = useRef(null);
   const refreshKey = useArenaRefresh();
 
-  const handleMouseMove = useCallback((e, arrow) => {
-    setCursor({ x: e.clientX, y: e.clientY, arrow });
+  const handleMouseMove = useCallback((e, direction) => {
+    setCursor({ x: e.clientX, y: e.clientY, direction });
   }, []);
   const handleMouseLeave = useCallback(() => setCursor(null), []);
 
@@ -272,20 +278,25 @@ function Past() {
         type="button"
         aria-label="Previous project"
         onClick={prev}
-        onMouseMove={(e) => handleMouseMove(e, "←")}
+        onMouseMove={(e) => handleMouseMove(e, "prev")}
         onMouseLeave={handleMouseLeave}
       />
       <NextButton
         type="button"
         aria-label="Next project"
         onClick={next}
-        onMouseMove={(e) => handleMouseMove(e, "→")}
+        onMouseMove={(e) => handleMouseMove(e, "next")}
         onMouseLeave={handleMouseLeave}
       />
 
       {cursor && (
         <CustomCursor style={{ left: cursor.x, top: cursor.y }}>
-          {cursor.arrow}
+          <CursorArrowImg
+            src={scarrowUrl}
+            alt=""
+            aria-hidden
+            $flip={cursor.direction === "prev"}
+          />
         </CustomCursor>
       )}
 
