@@ -132,7 +132,7 @@ const LIST_ROW_STACK_GAP = "0.2rem";
 const PreviewCell = styled(GridCell)`
   position: relative;
   align-self: stretch;
-  overflow: hidden;
+  /* overflow: hidden; */
 
   @media ${GRID.MEDIA_MOBILE} {
     display: none;

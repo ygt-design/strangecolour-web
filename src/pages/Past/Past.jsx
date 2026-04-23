@@ -234,7 +234,7 @@ function Past() {
   }, [showSlide]);
 
   const changeSlide = useCallback((direction) => {
-    if (!projects || transitioningRef.current) return;
+    if (!projects || projects.length < 2 || transitioningRef.current) return;
     transitioningRef.current = true;
 
     const nextIndex = direction === "prev"
@@ -260,6 +260,7 @@ function Past() {
 
   const current = projects?.[index];
   const { imageUrl, name, client } = current ?? {};
+  const hasMultiple = (projects?.length ?? 0) > 1;
 
   return (
     <>
@@ -274,30 +275,34 @@ function Past() {
       </Stage>
     )}
     {projects && projects.length > 0 && <Stage>
-      <PrevButton
-        type="button"
-        aria-label="Previous project"
-        onClick={prev}
-        onMouseMove={(e) => handleMouseMove(e, "prev")}
-        onMouseLeave={handleMouseLeave}
-      />
-      <NextButton
-        type="button"
-        aria-label="Next project"
-        onClick={next}
-        onMouseMove={(e) => handleMouseMove(e, "next")}
-        onMouseLeave={handleMouseLeave}
-      />
-
-      {cursor && (
-        <CustomCursor style={{ left: cursor.x, top: cursor.y }}>
-          <CursorArrowImg
-            src={scarrowUrl}
-            alt=""
-            aria-hidden
-            $flip={cursor.direction === "prev"}
+      {hasMultiple && (
+        <>
+          <PrevButton
+            type="button"
+            aria-label="Previous project"
+            onClick={prev}
+            onMouseMove={(e) => handleMouseMove(e, "prev")}
+            onMouseLeave={handleMouseLeave}
           />
-        </CustomCursor>
+          <NextButton
+            type="button"
+            aria-label="Next project"
+            onClick={next}
+            onMouseMove={(e) => handleMouseMove(e, "next")}
+            onMouseLeave={handleMouseLeave}
+          />
+
+          {cursor && (
+            <CustomCursor style={{ left: cursor.x, top: cursor.y }}>
+              <CursorArrowImg
+                src={scarrowUrl}
+                alt=""
+                aria-hidden
+                $flip={cursor.direction === "prev"}
+              />
+            </CustomCursor>
+          )}
+        </>
       )}
 
       <SlideContent $isVisible={isVisible}>
