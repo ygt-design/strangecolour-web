@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import styled from "styled-components";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
@@ -11,6 +11,7 @@ import { Grid, GridCell, GRID } from "../../grid";
 import ThumbnailItem from "../../components/ThumbnailItem";
 import LoadingOverlay from "../../components/LoadingOverlay";
 import { typeHeadingLg } from "../../styles";
+import scarrowUrl from "../../assets/SCARROW.svg";
 import {
   parseLayoutConfig,
   rowToBlocks,
@@ -22,7 +23,8 @@ gsap.registerPlugin(ScrollTrigger);
 const LargeText = styled.div`
   ${typeHeadingLg}
   max-width: 100%;
-  margin-top: 2rem;
+  margin-top: 0rem !important;
+  /* border: 1px solid red; */
 
   p {
     margin: 0 0 0.5em;
@@ -33,32 +35,14 @@ const LargeText = styled.div`
   }
 `;
 
-/** Intro header: categories cycle these on hover (`data-category-hover` in document order). */
-const CATEGORY_HOVER = ["#0f756f", "#75570f", "#750f61"];
-
-const introCategoryHoverBlock = [0, 1, 2]
-  .map(
-    (i) => `
-  & a[data-category-hover="${i}"]:hover,
-  & a[data-category-hover="${i}"]:focus-visible,
-  & a[data-category-hover="${i}"]:active,
-  & strong[data-category-hover="${i}"]:hover,
-  & strong[data-category-hover="${i}"]:focus-visible,
-  & strong[data-category-hover="${i}"]:active,
-  & b[data-category-hover="${i}"]:hover,
-  & b[data-category-hover="${i}"]:focus-visible,
-  & b[data-category-hover="${i}"]:active {
-    color: ${CATEGORY_HOVER[i]} !important;
-  }`,
-  )
-  .join("");
-
 const IntroText = styled(LargeText)`
-  margin-top: ${(p) => (p.$afterDate ? "1rem" : "2rem")};
+  margin-top: ${(p) => (p.$afterDate ? "0.5rem" : "3.5rem")};
 
   @media ${GRID.MEDIA_MOBILE} {
-    margin-top: ${(p) => (p.$afterDate ? "0.35rem" : "2rem")};
+    margin-top: ${(p) => (p.$afterDate ? "0.2rem" : "2.75rem")};
   }
+
+  transition: color 0.45s ease;
 
   & a {
     color: inherit;
@@ -66,38 +50,39 @@ const IntroText = styled(LargeText)`
     transition: color 0.45s ease;
   }
 
+  & p,
   & strong,
-  & b {
+  & b,
+  & span {
     transition: color 0.45s ease;
   }
 
-  ${introCategoryHoverBlock}
+  /* Hovering/focusing a category target grays out the rest of the intro;
+     the hovered target itself stays black via the more specific rule below. */
+  &:has([data-category-hover]:hover),
+  &:has([data-category-hover]:focus-visible),
+  &:has([data-category-hover]:active) {
+    color: var(--color-muted-light);
+  }
+
+  & [data-category-hover]:hover,
+  & [data-category-hover]:focus-visible,
+  & [data-category-hover]:active {
+    color: rgb(0, 0, 0);
+  }
 
   @media (prefers-reduced-motion: reduce) {
+    &,
     & a,
+    & p,
     & strong,
-    & b {
+    & b,
+    & span {
       transition: none;
     }
   }
 `;
 
-/** Smaller than `LargeText` / title so the date reads as secondary (lower cap height / optical scale). */
-const DateBlock = styled.div`
-  max-width: 100%;
-  margin-top: 0;
-  font-weight: 400;
-  font-size: clamp(0.9375rem, 2.85vw, 2.15rem);
-  line-height: 1.2;
-
-  p {
-    margin: 0 0 0.5em;
-  }
-
-  p:last-child {
-    margin-bottom: 0;
-  }
-`;
 
 const IntroWrap = styled.div`
   grid-column: 1 / -1;
@@ -106,6 +91,49 @@ const IntroWrap = styled.div`
   @media ${GRID.MEDIA_MOBILE} {
     margin-bottom: 4rem;
   }
+`;
+
+const CurrentGrid = styled(Grid)`
+  row-gap: 3rem;
+  cursor: ${(p) => (p.$showTopCursor ? "none" : "auto")};
+
+  @media ${GRID.MEDIA_TABLET} {
+    row-gap: 2.25rem;
+  }
+
+  @media ${GRID.MEDIA_MOBILE} {
+    row-gap: 3rem;
+  }
+
+  > :nth-last-child(1) {
+    margin-bottom: 3rem;
+  }
+
+  @media (hover: none) {
+    cursor: auto;
+  }
+`;
+
+const BottomTopCursor = styled.div`
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 20;
+  user-select: none;
+
+  @media (hover: none) {
+    display: none;
+  }
+`;
+
+const BottomTopArrow = styled.img`
+  display: block;
+  height: clamp(1.5rem, 6vw, 3.5rem);
+  width: auto;
+  object-fit: contain;
+  transform: rotate(-90deg);
 `;
 
 function getImageUrl(block) {
@@ -226,7 +254,9 @@ function wrapWords(el) {
 }
 
 /**
- * Mark category targets for hover colors. Prefer `<a>` when present (Arena often uses bold only).
+ * Mark category hover targets in the intro. Prefer `<a>` when present
+ * (Arena often uses bold only). The CSS selector matches the attribute
+ * itself, so the value is just a stable marker.
  */
 function tagIntroCategoryTargets(introRoot) {
   if (!introRoot) return;
@@ -235,13 +265,16 @@ function tagIntroCategoryTargets(introRoot) {
     links.length > 0
       ? [...links]
       : [...introRoot.querySelectorAll("strong, b")];
-  nodes.forEach((el, i) => {
-    el.dataset.categoryHover = String(i % CATEGORY_HOVER.length);
+  nodes.forEach((el) => {
+    el.dataset.categoryHover = "";
   });
 }
 
 function Current() {
+  const BOTTOM_THRESHOLD_PX = 8;
   const [data, setData] = useState(null);
+  const [isAtBottom, setIsAtBottom] = useState(false);
+  const [bottomCursor, setBottomCursor] = useState(null);
   const textRefs = useRef([]);
   const thumbCellRefs = useRef([]);
   const introTextRef = useRef(null);
@@ -396,10 +429,52 @@ function Current() {
     return () => triggers.forEach((t) => t.kill());
   }, [data]);
 
+  useEffect(() => {
+    function updateBottomState() {
+      const doc = document.documentElement;
+      const atBottom =
+        window.scrollY + window.innerHeight >= doc.scrollHeight - BOTTOM_THRESHOLD_PX;
+      setIsAtBottom(atBottom);
+    }
+
+    updateBottomState();
+    window.addEventListener("scroll", updateBottomState, { passive: true });
+    window.addEventListener("resize", updateBottomState);
+    return () => {
+      window.removeEventListener("scroll", updateBottomState);
+      window.removeEventListener("resize", updateBottomState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAtBottom) setBottomCursor(null);
+  }, [isAtBottom]);
+
+  const handleBottomMouseMove = useCallback((e) => {
+    if (!isAtBottom) return;
+    setBottomCursor({ x: e.clientX, y: e.clientY });
+  }, [isAtBottom]);
+
+  const handleBottomMouseLeave = useCallback(() => {
+    setBottomCursor(null);
+  }, []);
+
+  const handleBottomClickCapture = useCallback((e) => {
+    if (!isAtBottom) return;
+    if (e.button !== 0) return;
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [isAtBottom]);
+
   const { dateBlock, introBlock, restTextBlocks, thumbnails, rowPattern, shiftPattern, layoutRows } = data ?? {};
 
+  // Date: with `/* dateBlock, */` commented out, the date is hidden. To show: uncomment it and set IntroText to $afterDate={!!dateBlock}.
   const textCells = data
-    ? [dateBlock, introBlock, ...restTextBlocks]
+    ? [
+        /* dateBlock, */
+        introBlock,
+        ...restTextBlocks,
+      ]
         .filter(Boolean)
         .map((block, i) => {
           const isDate = block.id === dateBlock?.id;
@@ -409,7 +484,7 @@ function Current() {
           ) : isIntro ? (
             <IntroText
               ref={introTextRef}
-              $afterDate={!!dateBlock}
+              $afterDate={false}
               dangerouslySetInnerHTML={{ __html: block.content?.html }}
             />
           ) : (
@@ -474,6 +549,8 @@ function Current() {
                 images={images}
                 subtitleHtml={subtitle?.content?.html ?? null}
                 align={rowAlign}
+                captionGap="0.5rem"
+                titleWeight={700}
               />
             </GridCell>
           );
@@ -485,11 +562,20 @@ function Current() {
     <>
       <LoadingOverlay isLoaded={!!data} />
       {data && (
-        <main>
-          <Grid as="div">
+        <main
+          onMouseMove={handleBottomMouseMove}
+          onMouseLeave={handleBottomMouseLeave}
+          onClickCapture={handleBottomClickCapture}
+        >
+          <CurrentGrid as="div" $showTopCursor={isAtBottom}>
             {textCells}
             {thumbnailCells}
-          </Grid>
+          </CurrentGrid>
+          {isAtBottom && bottomCursor && (
+            <BottomTopCursor style={{ left: bottomCursor.x, top: bottomCursor.y }}>
+              <BottomTopArrow src={scarrowUrl} alt="" aria-hidden />
+            </BottomTopCursor>
+          )}
         </main>
       )}
     </>

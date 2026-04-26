@@ -26,6 +26,38 @@ function findByTitle(items, title) {
   return items.find((item) => item.title?.toLowerCase() === t) ?? null;
 }
 
+function collectProjectImageUrls(channelContents) {
+  const urls = [];
+  const seen = new Set();
+
+  const push = (block) => {
+    const url = getImageUrl(block);
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    urls.push(url);
+  };
+
+  push(findByTitle(channelContents, "Thumbnail"));
+
+  const numberedRegex = /^image\s+(\d+)$/i;
+  const numbered = channelContents
+    .filter((b) => typeof b.title === "string" && numberedRegex.test(b.title))
+    .sort((a, b) => {
+      const aN = Number(a.title.match(numberedRegex)[1]);
+      const bN = Number(b.title.match(numberedRegex)[1]);
+      return aN - bN;
+    });
+  numbered.forEach(push);
+
+  if (urls.length === 0) {
+    const legacy = findByTitle(channelContents, "Image")
+      ?? channelContents.find((b) => getImageUrl(b));
+    push(legacy);
+  }
+
+  return urls;
+}
+
 function getPlainText(block) {
   if (!block) return "";
   if (block.content?.plain) return block.content.plain.trim();
@@ -162,6 +194,7 @@ const CursorArrowImg = styled.img`
 
 function Past() {
   const [projects, setProjects] = useState(null);
+  const [slides, setSlides] = useState([]);
   const [index, setIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
   const [cursor, setCursor] = useState(null);
@@ -202,18 +235,35 @@ function Past() {
             });
           }
 
-          const imageBlock = findByTitle(channelContents, "Image")
-            ?? channelContents.find((b) => getImageUrl(b));
-          const imageUrl = getImageUrl(imageBlock);
+          const imageUrls = collectProjectImageUrls(channelContents);
           const name = parseProjectName(channel.title);
           const client = getPlainText(findByTitle(channelContents, "Client"));
 
-          return { channel, imageUrl, name, client };
+          return { channel, imageUrls, name, client };
         })
       );
 
       if (!cancelled) {
+        const flatSlides = [];
+        loaded.forEach((proj, projectIndex) => {
+          proj.imageUrls.forEach((url, imageIndex) => {
+            flatSlides.push({
+              url,
+              projectIndex,
+              imageIndex,
+              name: proj.name,
+              client: proj.client,
+            });
+          });
+        });
+
+        flatSlides.forEach((s) => {
+          if (s.url) new Image().src = s.url;
+        });
+
         setProjects(loaded);
+        setSlides(flatSlides);
+        setIndex(0);
       }
     }
 
@@ -234,12 +284,12 @@ function Past() {
   }, [showSlide]);
 
   const changeSlide = useCallback((direction) => {
-    if (!projects || projects.length < 2 || transitioningRef.current) return;
+    if (!slides || slides.length < 2 || transitioningRef.current) return;
     transitioningRef.current = true;
 
     const nextIndex = direction === "prev"
-      ? (index <= 0 ? projects.length - 1 : index - 1)
-      : (index >= projects.length - 1 ? 0 : index + 1);
+      ? (index <= 0 ? slides.length - 1 : index - 1)
+      : (index >= slides.length - 1 ? 0 : index + 1);
 
     setIsVisible(false);
 
@@ -247,25 +297,27 @@ function Past() {
       pendingIndexRef.current = nextIndex;
       setIndex(nextIndex);
 
-      const nextUrl = projects[nextIndex]?.imageUrl;
+      const nextUrl = slides[nextIndex]?.url;
       if (!nextUrl) {
         showSlide();
       }
       // else: handleImageLoad will call showSlide when the <img> fires onLoad
     }, FADE_MS);
-  }, [projects, index, showSlide]);
+  }, [slides, index, showSlide]);
 
   const prev = useCallback(() => changeSlide("prev"), [changeSlide]);
   const next = useCallback(() => changeSlide("next"), [changeSlide]);
 
-  const current = projects?.[index];
-  const { imageUrl, name, client } = current ?? {};
-  const hasMultiple = (projects?.length ?? 0) > 1;
+  const current = slides[index];
+  const imageUrl = current?.url ?? null;
+  const name = current?.name ?? "";
+  const client = current?.client ?? "";
+  const hasMultiple = slides.length > 1;
 
   return (
     <>
     <LoadingOverlay isLoaded={!!projects} />
-    {projects && projects.length === 0 && (
+    {projects && slides.length === 0 && (
       <Stage>
         <Grid as="div">
           <GridCell $span={12} $spanMobile={4}>
@@ -274,7 +326,7 @@ function Past() {
         </Grid>
       </Stage>
     )}
-    {projects && projects.length > 0 && <Stage>
+    {projects && slides.length > 0 && <Stage>
       {hasMultiple && (
         <>
           <PrevButton

@@ -1,9 +1,8 @@
-import { useState, useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
 import styled from "styled-components";
 import { Grid, GridCell, GRID } from "../grid";
-import { LOADER_NAV_HANDOFF } from "../loaderNavHandoff.js";
 import { typeSmallMixed } from "../styles";
+import scLogo from "../assets/icons/SCLogo.gif";
 
 const HeaderBar = styled.header`
   position: fixed;
@@ -12,7 +11,8 @@ const HeaderBar = styled.header`
   right: 0;
   z-index: 100;
   background: white;
-  padding-block: 1rem;
+  padding-top: 1rem;
+  padding-bottom: 0.5rem;
 `;
 
 const MobileNavSection = styled.div`
@@ -82,6 +82,7 @@ const StyledNavLink = styled(NavLink)`
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
+  /* border: 1px solid red; */
   &:hover,
   &:focus-visible {
     color: var(--color-accent-green);
@@ -104,101 +105,23 @@ const LogoBox = styled.div`
   justify-content: center;
   align-self: center;
   overflow: visible;
-  opacity: ${(p) => (p.$concealed ? 0 : 1)};
-  visibility: ${(p) => (p.$concealed ? "hidden" : "visible")};
   @media ${GRID.MEDIA_MOBILE} {
     width: 1.25rem;
     height: 1.25rem;
   }
 `;
 
-const GlyphChar = styled.span`
-  font-family: 'Citerne', system-ui, sans-serif;
-  font-size: 1.35rem;
-  font-weight: 500;
-  line-height: 1;
-  color: black;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  @media ${GRID.MEDIA_MOBILE} {
-    font-size: 1.1rem;
-  }
-`;
-
-const GreenSquare = styled.div`
+const LogoImage = styled.img`
   width: 100%;
   height: 100%;
-  background-color: var(--color-accent-green);
+  object-fit: contain;
+  display: block;
 `;
 
-const GLYPHS = "ÆĐ&CﬀZß≈×#STKP";
-const SHUFFLE_INTERVAL = 120;
-const SHUFFLE_COUNT = 8;
-const HOLD_DURATION = 1000;
-/** Keep green square on nav after loader lands before shuffle resumes. */
-const POST_HANDOFF_GREEN_MS = 500;
-
-function GlyphLogo() {
-  const [phase, setPhase] = useState("hold"); // "shuffle" | "hold"
-  const [glyph, setGlyph] = useState("");
-  const [loaderHandoff, setLoaderHandoff] = useState(false);
-  const tickRef = useRef(0);
-  /**
-   * After loader handoff ends: delay (ms) before shuffle. `null` = use HOLD_DURATION (initial mount).
-   */
-  const resumeShuffleDelayRef = useRef(null);
-
-  useEffect(() => {
-    const onHandoff = (e) => {
-      const active = !!e.detail?.active;
-      if (active) setPhase("hold");
-      else resumeShuffleDelayRef.current = POST_HANDOFF_GREEN_MS;
-      setLoaderHandoff(active);
-    };
-    window.addEventListener(LOADER_NAV_HANDOFF, onHandoff);
-    return () => window.removeEventListener(LOADER_NAV_HANDOFF, onHandoff);
-  }, []);
-
-  useEffect(() => {
-    if (loaderHandoff) return;
-    let timer;
-
-    function shuffle() {
-      setPhase("shuffle");
-      setGlyph(GLYPHS[Math.floor(Math.random() * GLYPHS.length)]);
-      tickRef.current = 1;
-
-      timer = setInterval(() => {
-        setGlyph(GLYPHS[Math.floor(Math.random() * GLYPHS.length)]);
-        tickRef.current++;
-
-        if (tickRef.current >= SHUFFLE_COUNT) {
-          clearInterval(timer);
-          setPhase("hold");
-          timer = setTimeout(shuffle, HOLD_DURATION);
-        }
-      }, SHUFFLE_INTERVAL);
-    }
-
-    const delay =
-      resumeShuffleDelayRef.current != null
-        ? resumeShuffleDelayRef.current
-        : HOLD_DURATION;
-    if (resumeShuffleDelayRef.current != null) resumeShuffleDelayRef.current = null;
-    timer = setTimeout(shuffle, delay);
-    return () => { clearInterval(timer); clearTimeout(timer); };
-  }, [loaderHandoff]);
-
-  const showGreen = loaderHandoff || phase === "hold";
-
+function BrandLogo() {
   return (
-    <LogoBox
-      aria-hidden
-      data-nav-glyph-logo
-      $concealed={loaderHandoff}
-    >
-      {showGreen ? <GreenSquare /> : <GlyphChar>{glyph}</GlyphChar>}
+    <LogoBox aria-hidden>
+      <LogoImage src={scLogo} alt="" />
     </LogoBox>
   );
 }
@@ -218,7 +141,7 @@ function Navigation() {
                 Project List
               </StyledNavLink>
               <StyledNavLink to="/our-practice">Our Practice</StyledNavLink>
-              <GlyphLogo />
+              <BrandLogo />
             </MobileNavRow>
           </GridCell>
         </MobileNavGrid>
@@ -261,7 +184,7 @@ function Navigation() {
         >
           <RightCluster>
             <StyledNavLink to="/our-practice">Our Practice</StyledNavLink>
-            <GlyphLogo />
+            <BrandLogo />
           </RightCluster>
         </GridCell>
       </DesktopNav>

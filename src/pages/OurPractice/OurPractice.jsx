@@ -9,8 +9,15 @@ import {
   useArenaRefresh,
 } from "../../arena";
 import { Grid, GridCell, GRID } from "../../grid";
-import { typeBody, typeHeadingLgLight, typeSmall } from "../../styles";
+import {
+  typeBody,
+  typeHeadingLg,
+  typeSmallList,
+  typeSmallListStackedItems,
+  typeSmallListStackedLeaf,
+} from "../../styles";
 import LoadingOverlay from "../../components/LoadingOverlay";
+import scarrowUrl from "../../assets/SCARROW.svg";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -118,11 +125,11 @@ function getBlockContent(block) {
     if (hasHtmlTags(plain)) {
       return { html: plain, plain: stripHtml(plain), isRich: true };
     }
-    if (plain) {
-      return { html: plainToHtml(plain), plain, isRich: false };
-    }
     if (htmlFromApi) {
       return { html: htmlFromApi, plain: stripHtml(htmlFromApi), isRich: true };
+    }
+    if (plain) {
+      return { html: plainToHtml(plain), plain, isRich: false };
     }
     return null;
   };
@@ -153,7 +160,16 @@ function getBlockContent(block) {
 function normalizeLegalHtmlNewlines(html) {
   if (!html || typeof document === "undefined") return html;
   try {
-    const doc = new DOMParser().parseFromString(html, "text/html");
+    let source = String(html);
+    // Some CMS/Are.na payloads arrive as HTML-escaped strings (`&lt;p&gt;...`).
+    // Decode once so markup renders as markup instead of literal tag text.
+    if (!hasHtmlTags(source) && /&lt;\/?[a-z][\s\S]*?&gt;/i.test(source)) {
+      const decoder = document.createElement("textarea");
+      decoder.innerHTML = source;
+      source = decoder.value;
+    }
+
+    const doc = new DOMParser().parseFromString(source, "text/html");
     const { body } = doc;
 
     function walk(node) {
@@ -343,7 +359,7 @@ const Section = styled.div`
 `;
 
 const LeadText = styled.div`
-  ${typeHeadingLgLight}
+  ${typeHeadingLg}
   font-weight: 400;
 `;
 
@@ -488,7 +504,7 @@ const PracticeServicesBody = styled(PracticeBodyBlock)`
   ul.services-secondary-block,
   ol.services-secondary-block,
   div.services-secondary-block {
-    ${typeSmall}
+    ${typeSmallList}
     margin: 0 0 0.5em 0;
     padding: 0;
     list-style: none;
@@ -501,11 +517,7 @@ const PracticeServicesBody = styled(PracticeBodyBlock)`
   ul.services-secondary-block li,
   ol.services-secondary-block li,
   div.services-secondary-block p {
-    margin: 0 0 0.35em 0;
-    padding: 0;
-    text-transform: uppercase;
-    font-weight: 400;
-    break-inside: avoid;
+    ${typeSmallListStackedLeaf}
   }
 
   div.services-secondary-block p:last-child,
@@ -533,9 +545,9 @@ const PracticeServicesBody = styled(PracticeBodyBlock)`
   }
 `;
 
-/** Two balanced columns, `typeSmall`, no list bullets — Collaborators. */
+/** Two balanced columns — Collaborators + Donations (`typeSmallList` + Project List–matched stack). */
 const PracticeTwoColumnList = styled.div`
-  ${typeSmall}
+  ${typeSmallList}
   column-count: 2;
   column-gap: ${GRID.GAP}px;
   column-fill: balance;
@@ -549,32 +561,7 @@ const PracticeTwoColumnList = styled.div`
     column-gap: 0;
   }
 
-  p {
-    margin: 0 0 0.35em 0;
-    break-inside: avoid;
-  }
-
-  p:last-child {
-    margin-bottom: 0;
-  }
-
-  ul,
-  ol {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  li {
-    margin: 0 0 0.35em 0;
-    padding: 0;
-    padding-left: 0;
-    break-inside: avoid;
-  }
-
-  li:last-child {
-    margin-bottom: 0;
-  }
+  ${typeSmallListStackedItems}
 `;
 
 /** Matches paragraph column (`PracticeBodyBlock`); one step heavier; sentence case. */
@@ -601,10 +588,10 @@ const PracticeRowListCell = styled(GridCell)`
   }
 `;
 
-/** Same column band as `Navigation` right cluster — aligns “Notes and Legal” with nav inset. */
+/** Left column band — aligns “Notes and Legal” to the page's left edge. */
 const LegalFooterCell = styled(GridCell)`
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 `;
 
 const LegalFooterTrigger = styled.button`
@@ -619,7 +606,7 @@ const LegalFooterTrigger = styled.button`
   background: none;
   border: none;
   cursor: pointer;
-  text-align: right;
+  text-align: left;
   font-family: inherit;
   width: fit-content;
   max-width: 100%;
@@ -661,12 +648,58 @@ const LegalModalShell = styled.div`
   padding-bottom: 4rem;
 `;
 
+const LegalModalBackButton = styled.button`
+  position: fixed;
+  left: ${GRID.PADDING}px;
+  bottom: 2.5rem;
+  z-index: 10060;
+  width: clamp(1.5rem, 4.5vw, 2.4rem);
+  height: clamp(1.5rem, 4.5vw, 2.4rem);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: rgb(0, 0, 0);
+
+  &:hover,
+  &:focus-visible {
+    color: var(--color-accent-green);
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  @media ${GRID.MEDIA_TABLET} {
+    left: ${GRID.PADDING_TABLET}px;
+  }
+
+  @media ${GRID.MEDIA_MOBILE} {
+    left: ${GRID.PADDING_MOBILE}px;
+  }
+`;
+
+const LegalModalBackArrow = styled.img`
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  transform: rotate(180deg);
+  filter: brightness(0);
+
+  ${LegalModalBackButton}:hover &,
+  ${LegalModalBackButton}:focus-visible & {
+    filter: none;
+  }
+`;
+
 /**
  * Notes & Legal sheet — quiet reference layout: sentence case, black on white,
  * comfortable line length feel (~1.5 leading), clear space between blocks.
  */
-const LEGAL_MODAL_BLOCK_GAP = "1.7em";
-const LEGAL_MODAL_LIST_GAP = "0.65em";
+const LEGAL_MODAL_BLOCK_GAP = "1.1em";
+const LEGAL_MODAL_LIST_GAP = "0.35em";
 
 const legalModalCopy = css`
   font-family: inherit;
@@ -676,7 +709,7 @@ const legalModalCopy = css`
   color: #000;
   text-align: left;
   text-transform: none;
-  white-space: pre-line;
+  white-space: normal;
 
   strong,
   b {
@@ -699,12 +732,10 @@ const LegalModalBody = styled.div`
 const LegalModalPhotoLabel = styled.p`
   ${legalModalCopy}
   margin: ${LEGAL_MODAL_BLOCK_GAP} 0 ${LEGAL_MODAL_LIST_GAP} 0;
-  font-size: clamp(1rem, 1.95vw, 1.2rem);
 `;
 
 const LegalModalPhotoList = styled.ul`
   ${legalModalCopy}
-  font-size: clamp(1rem, 1.95vw, 1.2rem);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -727,6 +758,9 @@ const LegalModalRichBody = styled.div`
 
   * {
     color: inherit !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
   }
 
   p {
@@ -817,10 +851,13 @@ function OurPractice() {
         "Legal notes",
       ]);
       let notesLegal = getBlockContent(notesLegalBlock);
-      if (!stripHtml(notesLegal.html).length && notesLegalBlock?.id) {
+      if (notesLegalBlock?.id) {
         try {
           const full = await getBlock(String(notesLegalBlock.id), { skipCache });
-          notesLegal = getBlockContent(full);
+          const fullContent = getBlockContent(full);
+          if (stripHtml(fullContent.html).length) {
+            notesLegal = fullContent;
+          }
         } catch (e) {
           if (import.meta.env.DEV) {
             console.warn("[OurPractice] Notes and Legal: full block fetch failed", e);
@@ -1182,9 +1219,9 @@ function OurPractice() {
 
       <Grid as="div">
         <LegalFooterCell
-          $start={9}
+          $start={1}
           $span={4}
-          $startTablet={6}
+          $startTablet={1}
           $spanTablet={3}
           $startMobile={1}
           $spanMobile={4}
@@ -1210,13 +1247,20 @@ function OurPractice() {
           aria-modal="true"
           aria-label="Notes and Legal"
         >
+          <LegalModalBackButton
+            type="button"
+            onClick={closeLegalModal}
+            aria-label="Back"
+          >
+            <LegalModalBackArrow src={scarrowUrl} alt="" aria-hidden />
+          </LegalModalBackButton>
           <LegalModalShell>
             <Grid as="div">
               <GridCell
                 $start={1}
-                $span={12}
+                $span={6}
                 $startTablet={1}
-                $spanTablet={8}
+                $spanTablet={4}
                 $startMobile={1}
                 $spanMobile={4}
                 $alignSelf="start"

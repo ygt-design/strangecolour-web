@@ -14,7 +14,7 @@ import {
   useArenaRefresh,
 } from "../../arena";
 import { Grid, GridCell, GRID } from "../../grid";
-import { typeSmall } from "../../styles";
+import { typeSmallList, typeSmallListGridRowMargin } from "../../styles";
 import LoadingOverlay from "../../components/LoadingOverlay";
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -82,31 +82,39 @@ function sizeToSqFt(raw) {
   return n;
 }
 
-/** List + preview: always s.f. (no m²). */
+/**
+ * List + preview size label.
+ * - Numeric values are normalized to s.f.
+ * - Non-numeric labels (e.g. LRG / M / SML) are shown as authored.
+ */
 function formatSizeSf(raw) {
+  const rawStr = (raw ?? "").trim();
+  if (!rawStr) return "";
   const sqft = sizeToSqFt(raw);
-  if (sqft == null) return "";
+  if (sqft == null) return rawStr;
   const rounded = Math.round(sqft);
   return `${rounded.toLocaleString("en-US")}\u00A0s.f.`;
 }
 
-function sortProjects(projects, sortBy) {
+function sortProjects(projects, sortBy, sortDir) {
   const sorted = [...projects];
+  const compareWithDir = (cmp) => (sortDir === "desc" ? -cmp : cmp);
   switch (sortBy) {
     case "project":
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      return sorted.sort((a, b) => compareWithDir(a.name.localeCompare(b.name)));
     case "client":
-      return sorted.sort((a, b) => (a.client || "").localeCompare(b.client || ""));
+      return sorted.sort((a, b) => compareWithDir((a.client || "").localeCompare(b.client || "")));
     case "size":
       return sorted.sort((a, b) => {
         const av = sizeToSqFt(a.size);
         const bv = sizeToSqFt(b.size);
         const aOk = av != null;
         const bOk = bv != null;
-        if (!aOk && !bOk) return 0;
-        if (!aOk) return 1;
-        if (!bOk) return -1;
-        return av - bv;
+        if (aOk && bOk) return compareWithDir(av - bv);
+        if (!aOk && !bOk) {
+          return compareWithDir((a.size || "").localeCompare(b.size || ""));
+        }
+        return aOk ? -1 : 1;
       });
     default:
       return sorted;
@@ -122,12 +130,10 @@ const LayoutGrid = styled(Grid)`
   align-items: start;
 `;
 
-const cellType = typeSmall;
+const LIST_ROW_STACK_GAP = "0.3rem";
+const PREVIEW_IMAGE_CAPTION_GAP = "0.3rem";
 
-/** Matches vertical rhythm between list rows (`ListRow` margin 0.1rem + 0.1rem). */
-const LIST_ROW_STACK_GAP = "0.2rem";
-
-// ─── Left preview panel ──────────────────────────────────
+// Left preview panel 
 
 const PreviewCell = styled(GridCell)`
   position: relative;
@@ -150,6 +156,7 @@ const PreviewPanel = styled.div`
 
 const PreviewImage = styled.div`
   width: 100%;
+  max-height: 60vh;
   overflow: hidden;
   flex-shrink: 0;
   line-height: 0;
@@ -160,28 +167,21 @@ const PreviewImage = styled.div`
     display: block;
     width: 100%;
     height: auto;
-    max-height: 50vh;
-    object-fit: contain;
-    object-position: top left;
   }
 `;
 
-/** All caption lines stacked — shown above or below the image depending on list row / viewport flip. */
-const PreviewCaptionStack = styled.div`
-  ${cellType}
-  line-height: 1.2;
-  display: flex;
-  flex-direction: column;
+const PreviewTopRow = styled.div`
+  ${typeSmallList}
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: ${LIST_ROW_STACK_GAP};
+  align-items: baseline;
   min-width: 0;
   color: black;
+  margin-bottom: ${PREVIEW_IMAGE_CAPTION_GAP};
 `;
 
-const PreviewMetaRow = styled.div`
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 0.5rem;
-  align-items: baseline;
+const PreviewYear = styled.span`
   min-width: 0;
 `;
 
@@ -192,6 +192,9 @@ const PreviewArchitect = styled.span`
 `;
 
 const PreviewCaptionScope = styled.div`
+  ${typeSmallList}
+  max-width: 50%;
+  margin-top: ${PREVIEW_IMAGE_CAPTION_GAP};
   min-width: 0;
   white-space: normal;
   overflow: visible;
@@ -249,28 +252,51 @@ const ListContainer = styled.div`
   }
 `;
 
+const SortArrow = styled.svg.attrs({
+  viewBox: "0 0 233.2 244.42",
+  "aria-hidden": true,
+  focusable: "false",
+})`
+  display: inline-block;
+  height: 1rem;
+  width: 1.25rem;
+  fill: currentColor;
+  transform: ${(p) => (p.$dir === "asc" ? "rotate(-90deg)" : "rotate(90deg)")};
+  opacity: 0;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+`;
+
 const HeaderButton = styled.button`
-  ${cellType}
+  ${typeSmallList}
+  font-weight: 400;
   background: none;
   border: none;
   padding: 0;
   padding-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: flex-start;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: ${(p) => (p.$active ? "var(--color-accent-green)" : "var(--color-muted-light)")};
+  color: rgb(0, 0, 0);
   transition: color 0.12s;
   cursor: pointer;
 
   &:hover {
-    color: var(--color-accent-green);
+    color: rgb(0, 0, 0);
+  }
+
+  &:hover ${SortArrow},
+  &:focus-visible ${SortArrow} {
+    opacity: 1;
   }
 `;
 
 const Cell = styled.div`
-  ${cellType}
-  line-height: 1.2;
+  ${typeSmallList}
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -281,12 +307,13 @@ const SizeCell = styled(Cell)`
   text-align: right;
 `;
 
-/** Counteract ${cellType} uppercase so "s.f." stays mixed case. */
+/** Counteract `typeSmallList` uppercase so "s.f." stays mixed case. */
 const NoUppercase = styled.span`
   text-transform: none;
 `;
 
 const SizeHeaderButton = styled(HeaderButton)`
+  justify-content: flex-end;
   text-align: right;
 `;
 
@@ -315,12 +342,12 @@ const ListCellSize = styled(SizeCell)`
 `;
 
 const ListRow = styled.div`
+  ${typeSmallListGridRowMargin}
   display: grid;
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   cursor: pointer;
   padding: 0;
-  margin: 0.1rem 0;
   transition: color 0.15s ease;
   color: ${(p) => (p.$dimmed ? "var(--color-muted-light)" : "inherit")};
 
@@ -333,20 +360,9 @@ const ListRow = styled.div`
 
 function PreviewCaptions({ project }) {
   if (!project) return null;
-  const { year, architect, scope } = project;
-  const hasMeta = year || architect;
-  if (!hasMeta && !scope) return null;
-  return (
-    <PreviewCaptionStack>
-      {hasMeta && (
-        <PreviewMetaRow>
-          <span>{year ?? ""}</span>
-          <PreviewArchitect>{architect ?? ""}</PreviewArchitect>
-        </PreviewMetaRow>
-      )}
-      {scope ? <PreviewCaptionScope>{scope}</PreviewCaptionScope> : null}
-    </PreviewCaptionStack>
-  );
+  const { scope } = project;
+  if (!scope) return null;
+  return <PreviewCaptionScope>{scope}</PreviewCaptionScope>;
 }
 
 // ─── Component ───────────────────────────────────────────
@@ -354,24 +370,30 @@ function PreviewCaptions({ project }) {
 function ProjectList() {
   const [projects, setProjects] = useState(null);
   const [sortBy, setSortBy] = useState("project");
+  const [sortDir, setSortDir] = useState("asc");
   const [hoveredProject, setHoveredProject] = useState(null);
   const [previewProject, setPreviewProject] = useState(null);
   const [previewTop, setPreviewTop] = useState(0);
-  /** When false, caption stack sits above the image (viewport flip for lower list rows). */
-  const [captionBelowImage, setCaptionBelowImage] = useState(true);
 
   const rowsRef = useRef([]);
   const hasAnimated = useRef(false);
   const previewCellRef = useRef(null);
   const previewPanelRef = useRef(null);
   const hoveredRowRef = useRef(null);
-  /** After first measure for this hover, caption order stays fixed; only previewTop is refined. */
-  const captionPlacementDecidedRef = useRef(false);
 
   const sorted = useMemo(
-    () => (projects ? sortProjects(projects, sortBy) : null),
-    [projects, sortBy],
+    () => (projects ? sortProjects(projects, sortBy, sortDir) : null),
+    [projects, sortBy, sortDir],
   );
+
+  const handleSortClick = useCallback((key) => {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(key);
+    setSortDir("asc");
+  }, [sortBy]);
 
   const updatePreviewPosition = useCallback(() => {
     const cellEl = previewCellRef.current;
@@ -391,10 +413,6 @@ function ProjectList() {
     const alignTop = rowRect.top - cellRect.top;
 
     const needsViewportFlip = rowRect.top + panelHeight > vh;
-    if (!captionPlacementDecidedRef.current) {
-      setCaptionBelowImage(!needsViewportFlip);
-      captionPlacementDecidedRef.current = true;
-    }
     if (needsViewportFlip) {
       const bottomAlignTop = (rowRect.bottom - cellRect.top) - panelHeight;
       setPreviewTop(Math.max(0, bottomAlignTop));
@@ -404,8 +422,6 @@ function ProjectList() {
   }, []);
 
   const handleRowEnter = useCallback((project, e) => {
-    captionPlacementDecidedRef.current = false;
-    setCaptionBelowImage(true);
     setHoveredProject(project);
     setPreviewProject(project);
     hoveredRowRef.current = e.currentTarget;
@@ -415,8 +431,6 @@ function ProjectList() {
   const handleRowLeave = useCallback(() => {
     setHoveredProject(null);
     hoveredRowRef.current = null;
-    captionPlacementDecidedRef.current = false;
-    setCaptionBelowImage(true);
   }, []);
 
   useLayoutEffect(() => {
@@ -425,7 +439,7 @@ function ProjectList() {
       updatePreviewPosition();
     });
     return () => cancelAnimationFrame(id);
-  }, [captionBelowImage, hoveredProject, updatePreviewPosition]);
+  }, [hoveredProject, updatePreviewPosition]);
 
   const refreshKey = useArenaRefresh();
 
@@ -463,7 +477,8 @@ function ProjectList() {
           const year = getPlainText(findByTitle(channelContents, "Year"));
           const size = getPlainText(findByTitle(channelContents, "Size"));
 
-          const imageBlock = findByTitle(channelContents, "Image")
+          const imageBlock = findByTitle(channelContents, "Thumbnail")
+            ?? findByTitle(channelContents, "Image")
             ?? channelContents.find((b) => b.image);
           const imageUrl = getImageUrl(imageBlock);
 
@@ -515,33 +530,24 @@ function ProjectList() {
             style={{ top: `${previewTop}px` }}
           >
             {previewVisible && (
-              captionBelowImage ? (
-                <>
-                  <PreviewImage $visible={!!previewProject?.imageUrl}>
-                    {previewProject?.imageUrl && (
-                      <img
-                        src={previewProject.imageUrl}
-                        alt={previewProject.name}
-                        onLoad={updatePreviewPosition}
-                      />
-                    )}
-                  </PreviewImage>
-                  <PreviewCaptions project={previewProject} />
-                </>
-              ) : (
-                <>
-                  <PreviewCaptions project={previewProject} />
-                  <PreviewImage $visible={!!previewProject?.imageUrl}>
-                    {previewProject?.imageUrl && (
-                      <img
-                        src={previewProject.imageUrl}
-                        alt={previewProject.name}
-                        onLoad={updatePreviewPosition}
-                      />
-                    )}
-                  </PreviewImage>
-                </>
-              )
+              <>
+                {(previewProject?.year || previewProject?.architect) && (
+                  <PreviewTopRow>
+                    <PreviewYear>{previewProject?.year ?? ""}</PreviewYear>
+                    <PreviewArchitect>{previewProject?.architect ?? ""}</PreviewArchitect>
+                  </PreviewTopRow>
+                )}
+                <PreviewImage $visible={!!previewProject?.imageUrl}>
+                  {previewProject?.imageUrl && (
+                    <img
+                      src={previewProject.imageUrl}
+                      alt={previewProject.name}
+                      onLoad={updatePreviewPosition}
+                    />
+                  )}
+                </PreviewImage>
+                <PreviewCaptions project={previewProject} />
+              </>
             )}
           </PreviewPanel>
         </PreviewCell>
@@ -559,22 +565,31 @@ function ProjectList() {
             <HeaderProject
               type="button"
               $active={sortBy === "project"}
-              onClick={() => setSortBy("project")}
+              onClick={() => handleSortClick("project")}
             >
               Project
+              <SortArrow $dir={sortBy === "project" ? sortDir : "asc"}>
+                <polygon points="210.79 116.8 109.85 15.85 98.98 26.72 180.88 108.62 178.31 108.39 20.87 108.39 20.87 125.21 178.31 125.21 180.88 124.99 98.98 206.89 109.85 217.75 210.79 116.8 210.79 116.8" />
+              </SortArrow>
             </HeaderProject>
             <HeaderClient
               type="button"
               $active={sortBy === "client"}
-              onClick={() => setSortBy("client")}
+              onClick={() => handleSortClick("client")}
             >
               Client
+              <SortArrow $dir={sortBy === "client" ? sortDir : "asc"}>
+                <polygon points="210.79 116.8 109.85 15.85 98.98 26.72 180.88 108.62 178.31 108.39 20.87 108.39 20.87 125.21 178.31 125.21 180.88 124.99 98.98 206.89 109.85 217.75 210.79 116.8 210.79 116.8" />
+              </SortArrow>
             </HeaderClient>
             <HeaderSize
               type="button"
               $active={sortBy === "size"}
-              onClick={() => setSortBy("size")}
+              onClick={() => handleSortClick("size")}
             >
+              <SortArrow $dir={sortBy === "size" ? sortDir : "asc"}>
+                <polygon points="210.79 116.8 109.85 15.85 98.98 26.72 180.88 108.62 178.31 108.39 20.87 108.39 20.87 125.21 178.31 125.21 180.88 124.99 98.98 206.89 109.85 217.75 210.79 116.8 210.79 116.8" />
+              </SortArrow>
               Size
             </HeaderSize>
 

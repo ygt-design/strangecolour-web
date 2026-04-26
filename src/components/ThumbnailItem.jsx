@@ -61,7 +61,8 @@ const Thumb = styled.img`
 
 const Title = styled.div`
   ${typeSmallMixed}
-  margin-top: 0.25rem;
+  margin-top: ${(p) => p.$captionGap ?? "0.25rem"};
+  font-weight: ${(p) => p.$titleWeight ?? 400} !important;
   opacity: 0;
   transition: opacity 0.2s ease;
 
@@ -80,7 +81,15 @@ const Subtitle = styled.div`
   }
 `;
 
-function ThumbnailItem({ title, thumbnailUrl, images, subtitleHtml, align }) {
+function ThumbnailItem({
+  title,
+  thumbnailUrl,
+  images,
+  subtitleHtml,
+  align,
+  captionGap,
+  titleWeight,
+}) {
   const hasCarousel = images && images.length > 1;
   const [index, setIndex] = useState(0);
   const [cursor, setCursor] = useState("default");
@@ -150,7 +159,15 @@ function ThumbnailItem({ title, thumbnailUrl, images, subtitleHtml, align }) {
       ) : (
         displayUrl && <Thumb src={displayUrl} alt="" />
       )}
-      {title && <Title className="caption">{title}</Title>}
+      {title && (
+        <Title
+          className="caption"
+          $captionGap={captionGap}
+          $titleWeight={titleWeight}
+        >
+          {title}
+        </Title>
+      )}
       {subtitleHtml && (
         <Subtitle className="caption" dangerouslySetInnerHTML={{ __html: subtitleHtml }} />
       )}
