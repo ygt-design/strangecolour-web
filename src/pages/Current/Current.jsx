@@ -1,7 +1,6 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from "react";
 import styled from "styled-components";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   getChannelContentsByTitle,
   fetchAllChannelContents,
@@ -18,7 +17,10 @@ import {
   scaleRow,
 } from "./layoutConfig";
 
-gsap.registerPlugin(ScrollTrigger);
+/** Scroll-up cursor: only after real page length + some scroll (avoids early trigger on short layout). */
+const CURRENT_BOTTOM_THRESHOLD_PX = 8;
+const CURRENT_PAGE_OVERFLOW_MIN_PX = 96;
+const CURRENT_MIN_SCROLL_Y_FOR_BOTTOM_UI = 160;
 
 const LargeText = styled.div`
   ${typeHeadingLg}
@@ -57,15 +59,16 @@ const IntroText = styled(LargeText)`
     transition: color 0.45s ease;
   }
 
-  /* Hovering/focusing a category target grays out the rest of the intro;
-     the hovered target itself stays black via the more specific rule below. */
-  &:has([data-category-hover]:hover),
+  /* Dim non-targets when a category is “active”: pointer (data attr, set in JS
+     so hit-testing matches gaps between inline-block word spans), keyboard
+     (:focus-visible), or press (:active). */
+  &:has([data-category-hover-active]),
   &:has([data-category-hover]:focus-visible),
   &:has([data-category-hover]:active) {
     color: var(--color-muted-light);
   }
 
-  & [data-category-hover]:hover,
+  & [data-category-hover-active],
   & [data-category-hover]:focus-visible,
   & [data-category-hover]:active {
     color: rgb(0, 0, 0);
@@ -254,24 +257,52 @@ function wrapWords(el) {
 }
 
 /**
- * Mark category hover targets in the intro. Prefer `<a>` when present
- * (Arena often uses bold only). The CSS selector matches the attribute
- * itself, so the value is just a stable marker.
+ * Mark category hover targets in the intro: every link, plus strong/b that
+ * are not already inside a link (mixed CMS: footnote link + bold categories
+ * used to leave bold untagged). Clears stale pointer-active markers when CMS
+ * HTML changes.
  */
 function tagIntroCategoryTargets(introRoot) {
   if (!introRoot) return;
-  const links = introRoot.querySelectorAll("a");
-  const nodes =
-    links.length > 0
-      ? [...links]
-      : [...introRoot.querySelectorAll("strong, b")];
+  introRoot
+    .querySelectorAll("[data-category-hover-active]")
+    .forEach((el) => el.removeAttribute("data-category-hover-active"));
+  const nodes = [];
+  introRoot.querySelectorAll("a").forEach((el) => nodes.push(el));
+  introRoot.querySelectorAll("strong, b").forEach((el) => {
+    if (!el.closest("a")) nodes.push(el);
+  });
   nodes.forEach((el) => {
     el.dataset.categoryHover = "";
   });
 }
 
+/**
+ * Sync category “active” state from the real event target (not elementFromPoint),
+ * so fixed nav / other top layers cannot break hit-testing after scroll.
+ */
+function syncIntroCategoryPointerActiveFromEvent(introRoot, e) {
+  if (!introRoot || !(e.target instanceof Element)) return;
+  const { target } = e;
+  if (!introRoot.contains(target)) {
+    clearIntroCategoryPointerActive(introRoot);
+    return;
+  }
+  const next = target.closest("[data-category-hover]");
+  const nextInIntro = next && introRoot.contains(next) ? next : null;
+  const prev = introRoot.querySelector("[data-category-hover-active]");
+  if (prev === nextInIntro) return;
+  prev?.removeAttribute("data-category-hover-active");
+  if (nextInIntro) nextInIntro.setAttribute("data-category-hover-active", "");
+}
+
+function clearIntroCategoryPointerActive(introRoot) {
+  introRoot
+    ?.querySelector("[data-category-hover-active]")
+    ?.removeAttribute("data-category-hover-active");
+}
+
 function Current() {
-  const BOTTOM_THRESHOLD_PX = 8;
   const [data, setData] = useState(null);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [bottomCursor, setBottomCursor] = useState(null);
@@ -407,33 +438,55 @@ function Current() {
     }
   }, [data]);
 
-  // Fade-in on scroll for thumbnail cells
+  // Fade-in on scroll for thumbnail cells (GSAP only — no ScrollTrigger / IO overlay).
   useEffect(() => {
     if (!data) return;
     const cells = thumbCellRefs.current.filter(Boolean);
     if (!cells.length) return;
 
-    gsap.set(cells, { opacity: 0 });
+    const revealed = new WeakSet();
+    const vReveal = () => window.innerHeight * 0.9;
 
-    const triggers = cells.map((cell) =>
-      ScrollTrigger.create({
-        trigger: cell,
-        start: "top 90%",
-        once: true,
-        onEnter: () => {
-          gsap.to(cell, { opacity: 1, duration: 0.8, ease: "power2.out" });
-        },
-      })
-    );
+    gsap.set(cells, { opacity: 0, pointerEvents: "none" });
 
-    return () => triggers.forEach((t) => t.kill());
+    function tick() {
+      const vhLine = vReveal();
+      cells.forEach((cell) => {
+        if (revealed.has(cell)) return;
+        const { top, bottom } = cell.getBoundingClientRect();
+        if (top <= vhLine && bottom > 0) {
+          revealed.add(cell);
+          gsap.to(cell, {
+            opacity: 1,
+            pointerEvents: "auto",
+            duration: 0.8,
+            ease: "power2.out",
+          });
+        }
+      });
+    }
+
+    tick();
+    window.addEventListener("scroll", tick, { passive: true });
+    window.addEventListener("resize", tick);
+    return () => {
+      window.removeEventListener("scroll", tick);
+      window.removeEventListener("resize", tick);
+    };
   }, [data]);
 
   useEffect(() => {
     function updateBottomState() {
       const doc = document.documentElement;
+      const { scrollY, innerHeight } = window;
+      const { scrollHeight } = doc;
+      const hasOverflow = scrollHeight > innerHeight + CURRENT_PAGE_OVERFLOW_MIN_PX;
+      const nearBottom =
+        scrollY + innerHeight >= scrollHeight - CURRENT_BOTTOM_THRESHOLD_PX;
       const atBottom =
-        window.scrollY + window.innerHeight >= doc.scrollHeight - BOTTOM_THRESHOLD_PX;
+        hasOverflow &&
+        scrollY >= CURRENT_MIN_SCROLL_Y_FOR_BOTTOM_UI &&
+        nearBottom;
       setIsAtBottom(atBottom);
     }
 
@@ -444,7 +497,7 @@ function Current() {
       window.removeEventListener("scroll", updateBottomState);
       window.removeEventListener("resize", updateBottomState);
     };
-  }, []);
+  }, [data]);
 
   useEffect(() => {
     if (!isAtBottom) setBottomCursor(null);
@@ -463,10 +516,35 @@ function Current() {
     if (!isAtBottom) return;
     if (e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [isAtBottom]);
 
+  const handleIntroPointerMove = useCallback((e) => {
+    const root = introTextRef.current;
+    if (root && !root.querySelector("[data-category-hover]")) {
+      tagIntroCategoryTargets(root);
+    }
+    syncIntroCategoryPointerActiveFromEvent(root, e);
+  }, []);
+
+  const handleIntroPointerLeave = useCallback(() => {
+    clearIntroCategoryPointerActive(introTextRef.current);
+  }, []);
+
   const { dateBlock, introBlock, restTextBlocks, thumbnails, rowPattern, shiftPattern, layoutRows } = data ?? {};
+
+  // Stable innerHTML objects — React 19 re-applies dangerouslySetInnerHTML when the
+  // prop object reference changes, which wipes out DOM modifications made by wrapWords
+  // and tagIntroCategoryTargets. Memoising keeps the same object across re-renders.
+  const textBlockHtml = useMemo(() => {
+    if (!data) return {};
+    const map = {};
+    [data.dateBlock, data.introBlock, ...(data.restTextBlocks || [])].filter(Boolean).forEach((block) => {
+      map[block.id] = { __html: block.content?.html };
+    });
+    return map;
+  }, [data]);
 
   // Date: with `/* dateBlock, */` commented out, the date is hidden. To show: uncomment it and set IntroText to $afterDate={!!dateBlock}.
   const textCells = data
@@ -480,15 +558,17 @@ function Current() {
           const isDate = block.id === dateBlock?.id;
           const isIntro = block.id === introBlock?.id;
           const body = isDate ? (
-            <DateBlock dangerouslySetInnerHTML={{ __html: block.content?.html }} />
+            <DateBlock dangerouslySetInnerHTML={textBlockHtml[block.id]} />
           ) : isIntro ? (
             <IntroText
               ref={introTextRef}
               $afterDate={false}
-              dangerouslySetInnerHTML={{ __html: block.content?.html }}
+              onMouseMove={handleIntroPointerMove}
+              onMouseLeave={handleIntroPointerLeave}
+              dangerouslySetInnerHTML={textBlockHtml[block.id]}
             />
           ) : (
-            <LargeText dangerouslySetInnerHTML={{ __html: block.content?.html }} />
+            <LargeText dangerouslySetInnerHTML={textBlockHtml[block.id]} />
           );
           const cell = (
             <GridCell
