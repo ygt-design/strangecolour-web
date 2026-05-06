@@ -408,6 +408,7 @@ const BodyText = styled.div`
 
   @media (max-width: ${GRID.BREAKPOINT}) {
     font-size: 1.15rem;
+    line-height: 1.35;
     margin-bottom: 1rem;
   }
 `;
