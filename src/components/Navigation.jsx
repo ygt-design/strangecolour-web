@@ -92,6 +92,7 @@ const StyledNavLink = styled(NavLink)`
   }
 
   @media ${GRID.MEDIA_MOBILE} {
+    font-size: 1rem;
     line-height: 1.25;
   }
 `;
