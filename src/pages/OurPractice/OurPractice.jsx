@@ -366,6 +366,12 @@ const LeadText = styled.div`
   ${typeHeadingLg}
   font-weight: 400;
 
+  @media ${GRID.MEDIA_MOBILE} {
+    font-size: 1.35rem;
+    line-height: 1.25;
+
+  }
+
   @media ${GRID.MEDIA_LARGE} {
     font-size: 4.5rem;
   }
@@ -401,6 +407,7 @@ const BodyText = styled.div`
   }
 
   @media (max-width: ${GRID.BREAKPOINT}) {
+    font-size: 1.15rem;
     margin-bottom: 1rem;
   }
 `;
