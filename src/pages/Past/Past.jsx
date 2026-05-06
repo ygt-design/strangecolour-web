@@ -85,6 +85,10 @@ const Stage = styled.main`
   min-height: calc(100dvh - 5rem);
   display: flex;
   flex-direction: column;
+
+  @media ${GRID.MEDIA_LARGE} {
+    min-height: calc(100dvh - 7rem);
+  }
 `;
 
 const SlideGrid = styled(Grid)`
@@ -92,6 +96,10 @@ const SlideGrid = styled(Grid)`
   min-height: calc(100dvh - 5rem);
   grid-template-rows: 1fr auto;
   align-content: stretch;
+
+  @media ${GRID.MEDIA_LARGE} {
+    min-height: calc(100dvh - 7rem);
+  }
 `;
 
 const SlideContent = styled.div`
@@ -112,6 +120,10 @@ const ImageWrap = styled.div`
     height: auto;
     object-fit: contain;
     max-height: calc(100dvh - 10rem);
+
+    @media ${GRID.MEDIA_LARGE} {
+      max-height: calc(100dvh - 13rem);
+    }
   }
 `;
 
@@ -133,6 +145,10 @@ const MetaLine = styled.div`
   text-align: center;
   padding-bottom: 1rem;
   width: 100%;
+
+  @media ${GRID.MEDIA_LARGE} {
+    padding-bottom: 1.5rem;
+  }
 `;
 
 const NavButton = styled.button`

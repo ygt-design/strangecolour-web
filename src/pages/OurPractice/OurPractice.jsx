@@ -353,6 +353,10 @@ const Page = styled.main`
 const Section = styled.div`
   margin-bottom: 2rem;
 
+  @media ${GRID.MEDIA_LARGE} {
+    margin-top: 5.5rem;
+  }
+
   @media (max-width: ${GRID.BREAKPOINT}) {
     margin-bottom: 0rem;
   }
@@ -361,6 +365,10 @@ const Section = styled.div`
 const LeadText = styled.div`
   ${typeHeadingLg}
   font-weight: 400;
+
+  @media ${GRID.MEDIA_LARGE} {
+    font-size: 4.5rem;
+  }
 `;
 
 /** Wider than default body (8 cols from grid start); scaled above `typeBody` for a fuller line. */

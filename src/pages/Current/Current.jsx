@@ -26,7 +26,10 @@ const LargeText = styled.div`
   ${typeHeadingLg}
   max-width: 100%;
   margin-top: 0rem !important;
-  /* border: 1px solid red; */
+
+  @media ${GRID.MEDIA_LARGE} {
+    font-size: 4.5rem;
+  }
 
   p {
     margin: 0 0 0.5em;
@@ -39,6 +42,10 @@ const LargeText = styled.div`
 
 const IntroText = styled(LargeText)`
   margin-top: ${(p) => (p.$afterDate ? "0.5rem" : "3.5rem")};
+
+  @media ${GRID.MEDIA_LARGE} {
+    margin-top: ${(p) => (p.$afterDate ? "0.5rem" : "5.5rem")};
+  }
 
   @media ${GRID.MEDIA_MOBILE} {
     margin-top: ${(p) => (p.$afterDate ? "0.2rem" : "2.75rem")};
@@ -411,13 +418,11 @@ function Current() {
     return () => { cancelled = true; };
   }, [refreshKey]);
 
-  // After Intro HTML is in the DOM — re-apply whenever CMS content changes (not gated by word animation).
   useLayoutEffect(() => {
     if (!data?.introBlock) return;
     tagIntroCategoryTargets(introTextRef.current);
   }, [data?.introBlock]);
 
-  // Word-by-word text entrance (runs on first render with data)
   useEffect(() => {
     if (!data || hasAnimated.current) return;
     hasAnimated.current = true;

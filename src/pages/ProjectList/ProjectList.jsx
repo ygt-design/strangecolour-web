@@ -289,6 +289,10 @@ const HeaderButton = styled.button`
     color: rgb(0, 0, 0);
   }
 
+  @media ${GRID.MEDIA_LARGE} {
+    padding-bottom: 2.25rem;
+  }
+
   &:hover ${SortArrow},
   &:focus-visible ${SortArrow} {
     opacity: 1;

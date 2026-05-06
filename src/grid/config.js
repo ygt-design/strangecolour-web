@@ -11,13 +11,14 @@
 
 const BREAKPOINT = "768px";
 const BREAKPOINT_TABLET = "1024px";
+const BREAKPOINT_LARGE = "1800px";
 
 export const GRID = {
   // ── Desktop ────────────────────────────────────────────────
   /** Number of grid columns on desktop */
   COLUMNS: 12,
   /** Maximum content width (px) */
-  MAX_WIDTH: 1800,
+  MAX_WIDTH: 2200,
   /** Horizontal page padding (px) */
   PADDING: 20,
   /** Column gap / gutter (px) */
@@ -50,12 +51,16 @@ export const GRID = {
   BREAKPOINT,
   /** Tablet breakpoint — max-width media query threshold */
   BREAKPOINT_TABLET,
+  /** Large breakpoint — min-width media query threshold */
+  BREAKPOINT_LARGE,
 
   // ── Pre-built media-query strings ──────────────────────────
   /** Use in styled-components: @media ${GRID.MEDIA_MOBILE} { … } */
   MEDIA_MOBILE: `(max-width: ${BREAKPOINT})`,
   /** Use in styled-components: @media ${GRID.MEDIA_TABLET} { … } */
   MEDIA_TABLET: `(max-width: ${BREAKPOINT_TABLET})`,
+  /** Use in styled-components: @media ${GRID.MEDIA_LARGE} { … } */
+  MEDIA_LARGE: `(min-width: ${BREAKPOINT_LARGE})`,
 };
 
 export default GRID;

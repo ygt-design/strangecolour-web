@@ -1,4 +1,5 @@
 import { css, createGlobalStyle } from "styled-components";
+import { GRID } from "./grid/config.js";
 import citerneRegular from "./assets/fonts/Citerne-Regular.woff2";
 import citerneMedium from "./assets/fonts/Citerne-Medium.woff2";
 import citerneBold from "./assets/fonts/Citerne-Bold.woff2";
@@ -45,6 +46,10 @@ export const typeSmall = css`
   font-weight: 400;
   font-size: clamp(0.75rem, 1.6vw, 0.8rem);
   text-transform: uppercase;
+
+  @media ${GRID.MEDIA_LARGE} {
+    font-size: 1rem;
+  }
 `;
 
 /**
@@ -112,6 +117,10 @@ export const typeSmallMixed = css`
   font-size: 1.25rem;
   line-height: 1.2;
   text-transform: none;
+
+  @media ${GRID.MEDIA_LARGE} {
+    font-size: 1.55rem;
+  }
 `;
 
 const GlobalStyle = createGlobalStyle`
@@ -159,6 +168,10 @@ const GlobalStyle = createGlobalStyle`
   body {
     font-family: 'Citerne', system-ui, -apple-system, sans-serif;
     padding-top: calc(3.5rem + 24px);
+
+    @media ${GRID.MEDIA_LARGE} {
+      padding-top: 7rem;
+    }
   }
 
   strong, b {
