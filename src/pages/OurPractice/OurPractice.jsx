@@ -112,10 +112,6 @@ function stripHtml(html) {
   return String(html ?? "").replace(/<[^>]*>/g, "").trim();
 }
 
-/**
- * Text from Are.na / strangecolor-cms: usually `content` on Text blocks; channel listings
- * sometimes omit fields, so we also read `description` and can refetch via `getBlock` in the loader.
- */
 function getBlockContent(block) {
   if (!block) return { html: "", plain: "", isRich: false };
 
@@ -352,10 +348,6 @@ const Page = styled.main`
 
 const Section = styled.div`
   margin-bottom: 2rem;
-
-  @media ${GRID.MEDIA_LARGE} {
-    margin-top: 5.5rem;
-  }
 
   @media (max-width: ${GRID.BREAKPOINT}) {
     margin-bottom: 0rem;
@@ -1059,8 +1051,8 @@ function OurPractice() {
         <GridCell
           ref={(el) => { textRefs.current[1] = el; }}
           style={{ opacity: 0 }}
-          $start={1}
-          $span={8}
+          $start={5}
+          $span={7}
           $startTablet={1}
           $spanTablet={8}
           $startMobile={1}

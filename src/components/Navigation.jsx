@@ -98,17 +98,22 @@ const StyledNavLink = styled(NavLink)`
 `;
 
 const LogoBox = styled.div`
-  width: 1.5rem;
-  height: 1.5rem;
+  font-size: 1.25rem;
+  width: 1.2em;
+  height: 1.2em;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   align-self: center;
   overflow: visible;
+
+  @media ${GRID.MEDIA_LARGE} {
+    font-size: 1.55rem;
+  }
+
   @media ${GRID.MEDIA_MOBILE} {
-    width: 1.25rem;
-    height: 1.25rem;
+    font-size: 1rem;
   }
 `;
 
