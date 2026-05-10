@@ -183,13 +183,23 @@ function Navigation() {
         </GridCell>
         <GridCell
           $start={9}
-          $span={4}
+          $span={3}
           $startTablet={6}
-          $spanTablet={3}
+          $spanTablet={2}
           $spanMobile={4}
         >
           <RightCluster>
             <StyledNavLink to="/our-practice">Our Practice</StyledNavLink>
+          </RightCluster>
+        </GridCell>
+        <GridCell
+          $start={12}
+          $span={1}
+          $startTablet={8}
+          $spanTablet={1}
+          $spanMobile={4}
+        >
+          <RightCluster>
             <BrandLogo />
           </RightCluster>
         </GridCell>

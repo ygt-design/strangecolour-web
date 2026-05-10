@@ -116,7 +116,7 @@ const CurrentGrid = styled(Grid)`
   }
 
   > :nth-last-child(1) {
-    margin-bottom: 3rem;
+    margin-bottom: 9rem;
   }
 
   @media (hover: none) {

@@ -131,7 +131,7 @@ const LayoutGrid = styled(Grid)`
 `;
 
 const LIST_ROW_STACK_GAP = "0.3rem";
-const PREVIEW_IMAGE_CAPTION_GAP = "0.3rem";
+const PREVIEW_IMAGE_ROW_SPAN = 13;
 
 // Left preview panel 
 
@@ -151,14 +151,12 @@ const PreviewPanel = styled.div`
   right: 0;
   display: flex;
   flex-direction: column;
-  gap: ${LIST_ROW_STACK_GAP};
 `;
 
 const PreviewImage = styled.div`
   width: 100%;
-  max-height: 60vh;
+  ${typeSmallListGridRowMargin}
   overflow: hidden;
-  flex-shrink: 0;
   line-height: 0;
   opacity: ${(p) => (p.$visible ? 1 : 0)};
   transition: opacity 0.2s ease;
@@ -166,35 +164,22 @@ const PreviewImage = styled.div`
   img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
   }
 `;
 
 const PreviewTopRow = styled.div`
   ${typeSmallList}
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: ${LIST_ROW_STACK_GAP};
-  align-items: baseline;
+  ${typeSmallListGridRowMargin}
+  margin-top: 0;
   min-width: 0;
   color: black;
-  margin-bottom: ${PREVIEW_IMAGE_CAPTION_GAP};
 `;
 
-const PreviewYear = styled.span`
-  min-width: 0;
-`;
-
-const PreviewArchitect = styled.span`
-  text-align: right;
-  justify-self: end;
-  min-width: 0;
-`;
-
-const PreviewCaptionScope = styled.div`
+const PreviewCaptionText = styled.div`
   ${typeSmallList}
-  max-width: 50%;
-  margin-top: ${PREVIEW_IMAGE_CAPTION_GAP};
+  ${typeSmallListGridRowMargin}
   min-width: 0;
   white-space: normal;
   overflow: visible;
@@ -364,9 +349,14 @@ const ListRow = styled.div`
 
 function PreviewCaptions({ project }) {
   if (!project) return null;
-  const { scope } = project;
-  if (!scope) return null;
-  return <PreviewCaptionScope>{scope}</PreviewCaptionScope>;
+  const { scope, architect } = project;
+  if (!scope && !architect) return null;
+  return (
+    <>
+      {scope && <PreviewCaptionText>{scope}</PreviewCaptionText>}
+      {architect && <PreviewCaptionText>{architect}</PreviewCaptionText>}
+    </>
+  );
 }
 
 // ─── Component ───────────────────────────────────────────
@@ -378,12 +368,14 @@ function ProjectList() {
   const [hoveredProject, setHoveredProject] = useState(null);
   const [previewProject, setPreviewProject] = useState(null);
   const [previewTop, setPreviewTop] = useState(0);
+  const [previewImageHeight, setPreviewImageHeight] = useState(null);
 
   const rowsRef = useRef([]);
   const hasAnimated = useRef(false);
   const previewCellRef = useRef(null);
   const previewPanelRef = useRef(null);
   const hoveredRowRef = useRef(null);
+  const listContainerRef = useRef(null);
 
   const sorted = useMemo(
     () => (projects ? sortProjects(projects, sortBy, sortDir) : null),
@@ -406,23 +398,31 @@ function ProjectList() {
     if (!cellEl || !panelEl || !rowEl) return;
 
     const cellRect = cellEl.getBoundingClientRect();
-    /**
-     * `ListRow` uses margin (not padding), so its border box matches the cell grid.
-     * Measuring the row avoids sub-pixel drift vs. measuring a single cell.
-     */
     const rowRect = rowEl.getBoundingClientRect();
     const panelHeight = panelEl.offsetHeight;
     const vh = window.innerHeight;
 
     const alignTop = rowRect.top - cellRect.top;
 
-    const needsViewportFlip = rowRect.top + panelHeight > vh;
-    if (needsViewportFlip) {
-      const bottomAlignTop = (rowRect.bottom - cellRect.top) - panelHeight;
-      setPreviewTop(Math.max(0, bottomAlignTop));
-    } else {
+    if (rowRect.top + panelHeight <= vh) {
       setPreviewTop(alignTop);
+      return;
     }
+
+    const rows = rowsRef.current.filter(Boolean);
+    if (rows.length >= 2) {
+      const r0 = rows[0].getBoundingClientRect();
+      const r1 = rows[1].getBoundingClientRect();
+      const rowStep = r1.top - r0.top;
+      if (rowStep > 0) {
+        const overflow = (rowRect.top + panelHeight) - vh;
+        const rowsUp = Math.ceil(overflow / rowStep);
+        setPreviewTop(Math.max(0, alignTop - rowsUp * rowStep));
+        return;
+      }
+    }
+
+    setPreviewTop(Math.max(0, (rowRect.bottom - cellRect.top) - panelHeight));
   }, []);
 
   const handleRowEnter = useCallback((project, e) => {
@@ -444,6 +444,32 @@ function ProjectList() {
     });
     return () => cancelAnimationFrame(id);
   }, [hoveredProject, updatePreviewPosition]);
+
+  useLayoutEffect(() => {
+    if (!sorted) return;
+
+    function measure() {
+      const rows = rowsRef.current.filter(Boolean);
+      if (rows.length < 2) return;
+
+      const rect0 = rows[0].getBoundingClientRect();
+      const rect1 = rows[1].getBoundingClientRect();
+      const rowStep = rect1.top - rect0.top;
+
+      const style = getComputedStyle(rows[0]);
+      const margins = parseFloat(style.marginTop) + parseFloat(style.marginBottom);
+
+      setPreviewImageHeight(PREVIEW_IMAGE_ROW_SPAN * rowStep - margins);
+    }
+
+    measure();
+
+    const el = listContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [sorted]);
 
   const refreshKey = useArenaRefresh();
 
@@ -535,13 +561,13 @@ function ProjectList() {
           >
             {previewVisible && (
               <>
-                {(previewProject?.year || previewProject?.architect) && (
-                  <PreviewTopRow>
-                    <PreviewYear>{previewProject?.year ?? ""}</PreviewYear>
-                    <PreviewArchitect>{previewProject?.architect ?? ""}</PreviewArchitect>
-                  </PreviewTopRow>
+                {previewProject?.year && (
+                  <PreviewTopRow>{previewProject.year}</PreviewTopRow>
                 )}
-                <PreviewImage $visible={!!previewProject?.imageUrl}>
+                <PreviewImage
+                  $visible={!!previewProject?.imageUrl}
+                  style={previewImageHeight ? { height: `${previewImageHeight}px` } : undefined}
+                >
                   {previewProject?.imageUrl && (
                     <img
                       src={previewProject.imageUrl}
@@ -565,7 +591,7 @@ function ProjectList() {
           $startMobile={1}
           $spanMobile={4}
         >
-          <ListContainer>
+          <ListContainer ref={listContainerRef}>
             <HeaderProject
               type="button"
               $active={sortBy === "project"}

@@ -104,6 +104,10 @@ const SlideGrid = styled(Grid)`
 
 const SlideContent = styled.div`
   flex: 1;
+`;
+
+const FadeWrap = styled.div`
+  width: 100%;
   opacity: ${(p) => (p.$isVisible ? 1 : 0)};
   transition: opacity ${FADE_MS}ms ease;
 `;
@@ -212,7 +216,8 @@ function Past() {
   const [projects, setProjects] = useState(null);
   const [slides, setSlides] = useState([]);
   const [index, setIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
+  const [isImageVisible, setIsImageVisible] = useState(true);
+  const [isTextVisible, setIsTextVisible] = useState(true);
   const [cursor, setCursor] = useState(null);
   const transitioningRef = useRef(false);
   const pendingIndexRef = useRef(null);
@@ -288,7 +293,8 @@ function Past() {
   }, [refreshKey]);
 
   const showSlide = useCallback(() => {
-    setIsVisible(true);
+    setIsImageVisible(true);
+    setIsTextVisible(true);
     transitioningRef.current = false;
   }, []);
 
@@ -307,17 +313,22 @@ function Past() {
       ? (index <= 0 ? slides.length - 1 : index - 1)
       : (index >= slides.length - 1 ? 0 : index + 1);
 
-    setIsVisible(false);
+    const currentSlide = slides[index];
+    const nextSlide = slides[nextIndex];
+    const sameText =
+      currentSlide?.name === nextSlide?.name &&
+      currentSlide?.client === nextSlide?.client;
+
+    setIsImageVisible(false);
+    if (!sameText) setIsTextVisible(false);
 
     setTimeout(() => {
       pendingIndexRef.current = nextIndex;
       setIndex(nextIndex);
 
-      const nextUrl = slides[nextIndex]?.url;
-      if (!nextUrl) {
+      if (!nextSlide?.url) {
         showSlide();
       }
-      // else: handleImageLoad will call showSlide when the <img> fires onLoad
     }, FADE_MS);
   }, [slides, index, showSlide]);
 
@@ -373,7 +384,7 @@ function Past() {
         </>
       )}
 
-      <SlideContent $isVisible={isVisible}>
+      <SlideContent>
         <SlideGrid as="div">
           <ImageCell
             $rowStart={1}
@@ -384,16 +395,18 @@ function Past() {
             $spanTablet={6}
             $spanMobile={4}
           >
-            {imageUrl && (
-              <ImageWrap>
-                <img
-                  src={imageUrl}
-                  alt={name}
-                  onLoad={handleImageLoad}
-                  onError={handleImageLoad}
-                />
-              </ImageWrap>
-            )}
+            <FadeWrap $isVisible={isImageVisible}>
+              {imageUrl && (
+                <ImageWrap>
+                  <img
+                    src={imageUrl}
+                    alt={name}
+                    onLoad={handleImageLoad}
+                    onError={handleImageLoad}
+                  />
+                </ImageWrap>
+              )}
+            </FadeWrap>
           </ImageCell>
 
           <GridCell
@@ -405,9 +418,11 @@ function Past() {
             $spanTablet={8}
             $spanMobile={4}
           >
-            <MetaLine>
-              {[name, client].filter(Boolean).join(", ")}
-            </MetaLine>
+            <FadeWrap $isVisible={isTextVisible}>
+              <MetaLine>
+                {[name, client].filter(Boolean).join(", ")}
+              </MetaLine>
+            </FadeWrap>
           </GridCell>
         </SlideGrid>
       </SlideContent>
