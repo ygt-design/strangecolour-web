@@ -75,7 +75,6 @@ const RightCluster = styled.div`
 
 const StyledNavLink = styled(NavLink)`
   ${typeSmallMixed}
-  line-height: 1.5;
   display: inline-flex;
   align-items: center;
   color: inherit;
@@ -93,27 +92,26 @@ const StyledNavLink = styled(NavLink)`
 
   @media ${GRID.MEDIA_MOBILE} {
     font-size: 1rem;
-    line-height: 1.25;
   }
 `;
 
 const LogoBox = styled.div`
-  font-size: 1.25rem;
-  width: 1.2em;
-  height: 1.2em;
+  width: 1.5rem;
+  height: 1.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  align-self: center;
   overflow: visible;
 
   @media ${GRID.MEDIA_LARGE} {
-    font-size: 1.55rem;
+    width: 1.86rem;
+    height: 1.86rem;
   }
 
   @media ${GRID.MEDIA_MOBILE} {
-    font-size: 1rem;
+    width: 1.2rem;
+    height: 1.2rem;
   }
 `;
 
@@ -183,23 +181,13 @@ function Navigation() {
         </GridCell>
         <GridCell
           $start={9}
-          $span={3}
+          $span={4}
           $startTablet={6}
-          $spanTablet={2}
+          $spanTablet={3}
           $spanMobile={4}
         >
           <RightCluster>
             <StyledNavLink to="/our-practice">Our Practice</StyledNavLink>
-          </RightCluster>
-        </GridCell>
-        <GridCell
-          $start={12}
-          $span={1}
-          $startTablet={8}
-          $spanTablet={1}
-          $spanMobile={4}
-        >
-          <RightCluster>
             <BrandLogo />
           </RightCluster>
         </GridCell>

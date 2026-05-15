@@ -635,7 +635,7 @@ function Current() {
                 subtitleHtml={subtitle?.content?.html ?? null}
                 align={rowAlign}
                 captionGap="0.5rem"
-                titleWeight={700}
+                titleWeight={500}
               />
             </GridCell>
           );

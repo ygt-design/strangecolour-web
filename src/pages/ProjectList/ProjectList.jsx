@@ -131,7 +131,6 @@ const LayoutGrid = styled(Grid)`
 `;
 
 const LIST_ROW_STACK_GAP = "0.3rem";
-const PREVIEW_IMAGE_ROW_SPAN = 13;
 
 // Left preview panel 
 
@@ -164,8 +163,7 @@ const PreviewImage = styled.div`
   img {
     display: block;
     width: 100%;
-    height: 100%;
-    object-fit: cover;
+    height: auto;
   }
 `;
 
@@ -368,14 +366,12 @@ function ProjectList() {
   const [hoveredProject, setHoveredProject] = useState(null);
   const [previewProject, setPreviewProject] = useState(null);
   const [previewTop, setPreviewTop] = useState(0);
-  const [previewImageHeight, setPreviewImageHeight] = useState(null);
 
   const rowsRef = useRef([]);
   const hasAnimated = useRef(false);
   const previewCellRef = useRef(null);
   const previewPanelRef = useRef(null);
   const hoveredRowRef = useRef(null);
-  const listContainerRef = useRef(null);
 
   const sorted = useMemo(
     () => (projects ? sortProjects(projects, sortBy, sortDir) : null),
@@ -402,6 +398,7 @@ function ProjectList() {
     const panelHeight = panelEl.offsetHeight;
     const vh = window.innerHeight;
 
+    // Normal: panel top aligns with row top
     const alignTop = rowRect.top - cellRect.top;
 
     if (rowRect.top + panelHeight <= vh) {
@@ -409,20 +406,9 @@ function ProjectList() {
       return;
     }
 
-    const rows = rowsRef.current.filter(Boolean);
-    if (rows.length >= 2) {
-      const r0 = rows[0].getBoundingClientRect();
-      const r1 = rows[1].getBoundingClientRect();
-      const rowStep = r1.top - r0.top;
-      if (rowStep > 0) {
-        const overflow = (rowRect.top + panelHeight) - vh;
-        const rowsUp = Math.ceil(overflow / rowStep);
-        setPreviewTop(Math.max(0, alignTop - rowsUp * rowStep));
-        return;
-      }
-    }
-
-    setPreviewTop(Math.max(0, (rowRect.bottom - cellRect.top) - panelHeight));
+    // Flipped: panel bottom aligns with row bottom
+    const flipped = (rowRect.bottom - cellRect.top) - panelHeight;
+    setPreviewTop(Math.max(0, flipped));
   }, []);
 
   const handleRowEnter = useCallback((project, e) => {
@@ -444,32 +430,6 @@ function ProjectList() {
     });
     return () => cancelAnimationFrame(id);
   }, [hoveredProject, updatePreviewPosition]);
-
-  useLayoutEffect(() => {
-    if (!sorted) return;
-
-    function measure() {
-      const rows = rowsRef.current.filter(Boolean);
-      if (rows.length < 2) return;
-
-      const rect0 = rows[0].getBoundingClientRect();
-      const rect1 = rows[1].getBoundingClientRect();
-      const rowStep = rect1.top - rect0.top;
-
-      const style = getComputedStyle(rows[0]);
-      const margins = parseFloat(style.marginTop) + parseFloat(style.marginBottom);
-
-      setPreviewImageHeight(PREVIEW_IMAGE_ROW_SPAN * rowStep - margins);
-    }
-
-    measure();
-
-    const el = listContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [sorted]);
 
   const refreshKey = useArenaRefresh();
 
@@ -566,7 +526,6 @@ function ProjectList() {
                 )}
                 <PreviewImage
                   $visible={!!previewProject?.imageUrl}
-                  style={previewImageHeight ? { height: `${previewImageHeight}px` } : undefined}
                 >
                   {previewProject?.imageUrl && (
                     <img
@@ -591,7 +550,7 @@ function ProjectList() {
           $startMobile={1}
           $spanMobile={4}
         >
-          <ListContainer ref={listContainerRef}>
+          <ListContainer>
             <HeaderProject
               type="button"
               $active={sortBy === "project"}

@@ -66,6 +66,11 @@ const Title = styled.div`
   opacity: 0;
   transition: opacity 0.2s ease;
 
+  strong,
+  b {
+    font-weight: 400 !important;
+  }
+
   p {
     margin: 0;
   }
@@ -75,6 +80,11 @@ const Subtitle = styled.div`
   ${typeSmallMixed}
   opacity: 0;
   transition: opacity 0.2s ease;
+
+  strong,
+  b {
+    font-weight: 400 !important;
+  }
 
   p {
     margin: 0;
