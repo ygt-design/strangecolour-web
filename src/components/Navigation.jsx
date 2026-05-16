@@ -81,7 +81,6 @@ const StyledNavLink = styled(NavLink)`
   text-decoration: none;
   white-space: nowrap;
   flex-shrink: 0;
-  /* border: 1px solid red; */
   &:hover,
   &:focus-visible {
     color: var(--color-accent-green);

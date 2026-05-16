@@ -150,6 +150,10 @@ const PreviewPanel = styled.div`
   right: 0;
   display: flex;
   flex-direction: column;
+
+  > :last-child {
+    margin-bottom: 0;
+  }
 `;
 
 const PreviewImage = styled.div`
@@ -406,9 +410,14 @@ function ProjectList() {
       return;
     }
 
-    // Flipped: panel bottom aligns with row bottom
+    // Flipped: panel bottom aligns with row bottom.
+    // Clamp so the panel never rises above the first data row.
+    const firstRow = rowsRef.current.find(Boolean);
+    const minTop = firstRow
+      ? firstRow.getBoundingClientRect().top - cellRect.top
+      : 0;
     const flipped = (rowRect.bottom - cellRect.top) - panelHeight;
-    setPreviewTop(Math.max(0, flipped));
+    setPreviewTop(Math.max(minTop, flipped));
   }, []);
 
   const handleRowEnter = useCallback((project, e) => {
