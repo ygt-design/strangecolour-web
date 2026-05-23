@@ -404,17 +404,12 @@ function ProjectList() {
       return;
     }
 
-    // Flipped: image bottom aligns with row text baseline.
-    // Baseline ≈ half-leading + cap-height from row top.
+    // Flipped: image bottom aligns with the top of the hovered row
     const imgEl = previewImageRef.current;
     const imgBottom = imgEl
       ? (imgEl.offsetTop + imgEl.offsetHeight)
       : panelHeight;
-    const rowStyle = getComputedStyle(rowEl.firstElementChild);
-    const fontSize = parseFloat(rowStyle.fontSize);
-    const lineHeight = parseFloat(rowStyle.lineHeight) || fontSize * 1.2;
-    const baselineY = rowRect.top + (lineHeight + fontSize) / 2 - cellRect.top;
-    const flipped = baselineY - imgBottom;
+    const flipped = (rowRect.top - cellRect.top) - imgBottom;
     setPreviewTop(flipped);
   }, []);
 
