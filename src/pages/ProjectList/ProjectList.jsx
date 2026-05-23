@@ -404,12 +404,13 @@ function ProjectList() {
       return;
     }
 
-    // Flipped: image bottom aligns with the top of the hovered row
+    // Flipped: image bottom aligns with the text baseline of the hovered row
     const imgEl = previewImageRef.current;
     const imgBottom = imgEl
       ? (imgEl.offsetTop + imgEl.offsetHeight)
       : panelHeight;
-    const flipped = (rowRect.top - cellRect.top) - imgBottom;
+    const baselineY = rowRect.top + rowRect.height * 0.75 - cellRect.top;
+    const flipped = baselineY - imgBottom;
     setPreviewTop(flipped);
   }, []);
 
