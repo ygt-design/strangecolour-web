@@ -409,7 +409,7 @@ function ProjectList() {
     const imgBottom = imgEl
       ? (imgEl.offsetTop + imgEl.offsetHeight)
       : panelHeight;
-    const baselineY = rowRect.top + rowRect.height * 0.75 - cellRect.top;
+    const baselineY = rowRect.top + rowRect.height * 0.65 - cellRect.top;
     const flipped = baselineY - imgBottom;
     setPreviewTop(flipped);
   }, []);
