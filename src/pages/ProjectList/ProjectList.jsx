@@ -150,15 +150,11 @@ const PreviewPanel = styled.div`
   right: 0;
   display: flex;
   flex-direction: column;
-
-  > :last-child {
-    margin-bottom: 0;
-  }
+  gap: 0.4rem;
 `;
 
 const PreviewImage = styled.div`
   width: 100%;
-  ${typeSmallListGridRowMargin}
   overflow: hidden;
   line-height: 0;
   opacity: ${(p) => (p.$visible ? 1 : 0)};
@@ -173,15 +169,12 @@ const PreviewImage = styled.div`
 
 const PreviewTopRow = styled.div`
   ${typeSmallList}
-  ${typeSmallListGridRowMargin}
-  margin-top: 0;
   min-width: 0;
   color: black;
 `;
 
 const PreviewCaptionText = styled.div`
   ${typeSmallList}
-  ${typeSmallListGridRowMargin}
   min-width: 0;
   white-space: normal;
   overflow: visible;
@@ -375,6 +368,7 @@ function ProjectList() {
   const hasAnimated = useRef(false);
   const previewCellRef = useRef(null);
   const previewPanelRef = useRef(null);
+  const previewImageRef = useRef(null);
   const hoveredRowRef = useRef(null);
 
   const sorted = useMemo(
@@ -410,14 +404,15 @@ function ProjectList() {
       return;
     }
 
-    // Flipped: panel bottom aligns with row bottom.
-    // Clamp so the panel never rises above the first data row.
-    const firstRow = rowsRef.current.find(Boolean);
-    const minTop = firstRow
-      ? firstRow.getBoundingClientRect().top - cellRect.top
-      : 0;
-    const flipped = (rowRect.bottom - cellRect.top) - panelHeight;
-    setPreviewTop(Math.max(minTop, flipped));
+    // Flipped: image bottom aligns with row text baseline
+    const imgEl = previewImageRef.current;
+    const imgBottom = imgEl
+      ? (imgEl.offsetTop + imgEl.offsetHeight)
+      : panelHeight;
+    const fontSize = parseFloat(getComputedStyle(rowEl.firstElementChild).fontSize);
+    const baselineY = rowRect.top + fontSize - cellRect.top;
+    const flipped = baselineY - imgBottom;
+    setPreviewTop(flipped);
   }, []);
 
   const handleRowEnter = useCallback((project, e) => {
@@ -534,6 +529,7 @@ function ProjectList() {
                   <PreviewTopRow>{previewProject.year}</PreviewTopRow>
                 )}
                 <PreviewImage
+                  ref={previewImageRef}
                   $visible={!!previewProject?.imageUrl}
                 >
                   {previewProject?.imageUrl && (
